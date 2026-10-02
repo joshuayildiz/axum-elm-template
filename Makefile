@@ -30,8 +30,11 @@ release: client;
 
 .PHONY: client ## builds client
 client: genelm
-	cd client && tailwindcss -i app.css -o target/app.css
+	cd client && tailwindcss -i app.css -o target/app.css --minify
 	cd client && elm make --optimize src/Main.elm --output target/app.js
+	cd client && terser target/app.js --compress 'pure_funcs=[F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9],pure_getters,keep_fargs=false,unsafe_comps,unsafe' --output target/app.tmp.js
+	cd client && terser target/app.tmp.js --mangle --output target/app.js
+	cd client && rm target/app.tmp.js
 	cd client && cp index.html target/index.html
 	mkdir -p target
 	rm -rf target/client && cp -r client/target target/client
