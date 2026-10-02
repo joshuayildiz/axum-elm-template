@@ -1,0 +1,7 @@
+{
+  "name": "client",
+  "private": true,
+  "devDependencies": {
+    "elm-watch": "2.0.0-beta.14"
+  }
+}

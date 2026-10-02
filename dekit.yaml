@@ -1,0 +1,13 @@
+tasks:
+  tailwind:
+    cwd: client
+    autostart: true
+    cmd: ["tailwindcss", "-i", "app.css", "-o", "target/app.css", "--watch"]
+  elm:
+    cwd: client
+    autostart: true
+    cmd: ["node", "dev-server.mjs", "hot"]
+  server:
+    cwd: server
+    autostart: true
+    cmd: ["sh", "-c", "cargo watch -s 'mkdir -p ../client/src/Api && cargo run --quiet -- genelm > ../client/src/Api/Types.elm.tmp && mv ../client/src/Api/Types.elm.tmp ../client/src/Api/Types.elm' -s 'cargo run --quiet -- serve'"]

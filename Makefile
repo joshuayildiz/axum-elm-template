@@ -25,6 +25,14 @@ help:
 	@grep '^.PHONY: ' Makefile | sed 's/^.PHONY: //' | awk '{split($$0, a, " ## "); printf "  \033[34m%-10s\033[0m%s\n", a[1], a[2]}'
 	@echo
 
+
+
+.PHONY: dev ## runs local dev servers with hot reload
+dev:
+	mkdir -p client/target
+	cp client/index.html client/target/index.html
+	dekit up && dekit attach
+
 .PHONY: release
 release: client;
 
@@ -49,6 +57,11 @@ server:
 	cd server && cargo zigbuild --release --target $(TARGET)
 	mkdir -p target
 	cp server/target/$(TARGET)/release/server target/server
+
+
+.PHONY: install ## installs client dev dependencies
+install:
+	cd client && npm install
 
 .PHONY: format ## formats server & client code
 format:
