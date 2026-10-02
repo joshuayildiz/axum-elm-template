@@ -1,10 +1,8 @@
 # axum-elm-template
 
-This project is a starter for an Axum server (Rust) and an Elm client.
+Batteries included Rust/Elm template/framework
 
-## Install
-
-Install these tools on your machine before you work with this template:
+## Prerequisites
 
 - [rust & cargo](https://rustup.rs)
 - [elm](https://guide.elm-lang.org/install/elm.html)

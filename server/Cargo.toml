@@ -5,4 +5,8 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.9"
+clap = { version = "4.6.7", features = ["derive"] }
+elm_rs = "0.2.3"
+serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.1", features = ["net", "rt"] }
+tower-http = { version = "0.7.1", features = ["fs"] }
