@@ -1,0 +1,20 @@
+#!/bin/sh
+fail=0
+
+echo "==> Checking Elm formatting (elm-format --validate)"
+if ! ( cd client && elm-format --validate . ); then
+	fail=1
+fi
+
+echo "==> Checking Rust formatting (cargo fmt --check)"
+if ! ( cd server && cargo fmt --check ); then
+	fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+	echo
+	echo "Formatting check failed. Run 'make format', then stage the changes."
+	exit 1
+fi
+
+echo "==> Formatting OK"
