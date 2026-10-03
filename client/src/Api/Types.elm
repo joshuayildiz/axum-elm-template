@@ -40,7 +40,110 @@ helloResponseEncoder struct =
         ]
 
 
+type alias LoginRequest =
+    { email : String
+    , password : String
+    }
+
+
+loginRequestEncoder : LoginRequest -> Json.Encode.Value
+loginRequestEncoder struct =
+    Json.Encode.object
+        [ ( "email", Json.Encode.string struct.email )
+        , ( "password", Json.Encode.string struct.password )
+        ]
+
+
+type alias UserResponse =
+    { id : String
+    , email : String
+    , name : Maybe String
+    , isAdmin : Bool
+    }
+
+
+userResponseEncoder : UserResponse -> Json.Encode.Value
+userResponseEncoder struct =
+    Json.Encode.object
+        [ ( "id", Json.Encode.string struct.id )
+        , ( "email", Json.Encode.string struct.email )
+        , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
+        , ( "is_admin", Json.Encode.bool struct.isAdmin )
+        ]
+
+
+type AuthError
+    = InvalidCredentials
+    | AccountDeactivated
+    | NotSignedIn
+
+
+authErrorEncoder : AuthError -> Json.Encode.Value
+authErrorEncoder enum =
+    case enum of
+        InvalidCredentials ->
+            Json.Encode.string "InvalidCredentials"
+
+        AccountDeactivated ->
+            Json.Encode.string "AccountDeactivated"
+
+        NotSignedIn ->
+            Json.Encode.string "NotSignedIn"
+
+
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
 helloResponseDecoder =
     Json.Decode.succeed HelloResponse
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "message" Json.Decode.string))
+
+
+loginRequestDecoder : Json.Decode.Decoder LoginRequest
+loginRequestDecoder =
+    Json.Decode.succeed LoginRequest
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))
+
+
+userResponseDecoder : Json.Decode.Decoder UserResponse
+userResponseDecoder =
+    Json.Decode.succeed UserResponse
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
+
+
+authErrorDecoder : Json.Decode.Decoder AuthError
+authErrorDecoder =
+    Json.Decode.oneOf
+        [ Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "InvalidCredentials" ->
+                            Json.Decode.succeed InvalidCredentials
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "AccountDeactivated" ->
+                            Json.Decode.succeed AccountDeactivated
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "NotSignedIn" ->
+                            Json.Decode.succeed NotSignedIn
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        ]

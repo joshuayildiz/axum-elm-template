@@ -1,6 +1,17 @@
-module Api exposing (errorToString, getHello)
+module Api exposing (errorToString, getHello, getMe, login, logout)
 
-import Api.Types exposing (HelloResponse, helloResponseDecoder)
+import Api.Types
+    exposing
+        ( AuthError
+        , HelloResponse
+        , LoginRequest
+        , UserResponse
+        , authErrorDecoder
+        , helloResponseDecoder
+        , loginRequestEncoder
+        , resultDecoder
+        , userResponseDecoder
+        )
 import Http
 
 
@@ -9,6 +20,32 @@ getHello toMsg =
     Http.get
         { url = "/api/v1/hello"
         , expect = Http.expectJson toMsg helloResponseDecoder
+        }
+
+
+login : LoginRequest -> (Result Http.Error (Result AuthError UserResponse) -> msg) -> Cmd msg
+login request toMsg =
+    Http.post
+        { url = "/api/v1/auth/login"
+        , body = Http.jsonBody (loginRequestEncoder request)
+        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder userResponseDecoder)
+        }
+
+
+getMe : (Result Http.Error (Result AuthError UserResponse) -> msg) -> Cmd msg
+getMe toMsg =
+    Http.get
+        { url = "/api/v1/auth/me"
+        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder userResponseDecoder)
+        }
+
+
+logout : (Result Http.Error () -> msg) -> Cmd msg
+logout toMsg =
+    Http.post
+        { url = "/api/v1/auth/logout"
+        , body = Http.emptyBody
+        , expect = Http.expectWhatever toMsg
         }
 
 

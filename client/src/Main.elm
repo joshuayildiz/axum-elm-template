@@ -1,90 +1,244 @@
 module Main exposing (main)
 
 import Api
-import Api.Types exposing (HelloResponse, helloResponseEncoder)
+import Api.Types exposing (AuthError, UserResponse)
 import Browser
-import Html exposing (Html, button, div, h1, pre, text)
-import Html.Attributes exposing (class)
-import Html.Events exposing (onClick)
+import Browser.Navigation as Nav
+import Html exposing (Html, a, div, h1, p, text)
+import Html.Attributes exposing (class, href)
 import Http
-import Json.Encode
+import Pages.Login as Login
+import Pages.Root as RootPage
+import Time
+import Url exposing (Url)
+import Url.Parser as Parser exposing (Parser)
+
+
+type Route
+    = Root
+    | Login
+    | NotFound
+
+
+type Session
+    = Checking
+    | Anonymous
+    | SignedIn UserResponse
+
+
+type alias LoginModel =
+    Login.Model
 
 
 type alias Model =
-    { status : Status }
-
-
-type Status
-    = Idle
-    | Loading
-    | Loaded HelloResponse
-    | Failed String
+    { key : Nav.Key
+    , route : Route
+    , session : Session
+    , login : LoginModel
+    }
 
 
 type Msg
-    = FetchHello
-    | GotHello (Result Http.Error HelloResponse)
+    = LinkClicked Browser.UrlRequest
+    | UrlChanged Url
+    | GotMe (Result Http.Error (Result AuthError UserResponse))
+    | LoginMsg Login.Msg
+    | RootMsg RootPage.Msg
+    | Tick
 
 
 main : Program () Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { status = Idle }, Cmd.none )
+init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    ( { key = key
+      , route = toRoute url
+      , session = Checking
+      , login = Login.init
+      }
+    , Api.getMe GotMe
+    )
+
+
+routeParser : Parser (Route -> a) a
+routeParser =
+    Parser.oneOf
+        [ Parser.map Root Parser.top
+        , Parser.map Login (Parser.s "login")
+        ]
+
+
+toRoute : Url -> Route
+toRoute url =
+    Maybe.withDefault NotFound (Parser.parse routeParser url)
+
+
+{-| Send a visitor away from a page the current session is not allowed to see.
+An anonymous visitor on a protected page goes to the login page, and a signed-in
+visitor on the login page goes to the root. While the session is unknown, wait.
+-}
+guard : Model -> Cmd Msg
+guard model =
+    case ( model.route, model.session ) of
+        ( Root, Anonymous ) ->
+            Nav.replaceUrl model.key "/login"
+
+        ( Login, SignedIn _ ) ->
+            Nav.replaceUrl model.key "/"
+
+        _ ->
+            Cmd.none
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        FetchHello ->
-            ( { model | status = Loading }, Api.getHello GotHello )
+        LinkClicked (Browser.Internal url) ->
+            ( model, Nav.pushUrl model.key (Url.toString url) )
 
-        GotHello (Ok hello) ->
-            ( { model | status = Loaded hello }, Cmd.none )
+        LinkClicked (Browser.External url) ->
+            ( model, Nav.load url )
 
-        GotHello (Err err) ->
-            ( { model | status = Failed (Api.errorToString err) }, Cmd.none )
+        UrlChanged url ->
+            let
+                next =
+                    { model | route = toRoute url }
+            in
+            ( next, guard next )
+
+        GotMe result ->
+            let
+                session =
+                    case result of
+                        Ok (Ok user) ->
+                            SignedIn user
+
+                        _ ->
+                            Anonymous
+
+                next =
+                    { model | session = session }
+            in
+            ( next, guard next )
+
+        LoginMsg subMsg ->
+            let
+                ( login, cmd, event ) =
+                    Login.update subMsg model.login
+
+                next =
+                    case event of
+                        Login.LoggedIn user ->
+                            { model | login = login, session = SignedIn user }
+
+                        Login.NoEvent ->
+                            { model | login = login }
+            in
+            ( next, Cmd.batch [ Cmd.map LoginMsg cmd, guard next ] )
+
+        RootMsg subMsg ->
+            let
+                ( cmd, event ) =
+                    RootPage.update subMsg
+
+                next =
+                    case event of
+                        RootPage.LoggedOut ->
+                            { model | session = Anonymous }
+
+                        RootPage.NoEvent ->
+                            model
+            in
+            ( next, Cmd.batch [ Cmd.map RootMsg cmd, guard next ] )
+
+        Tick ->
+            ( model, Api.getMe GotMe )
 
 
-view : Model -> Html Msg
+{-| While signed in, re-check the session every thirty seconds. Each check
+renews the token, so an open tab stays signed in past the one-minute token life.
+-}
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model.session of
+        SignedIn _ ->
+            Time.every 30000 (\_ -> Tick)
+
+        _ ->
+            Sub.none
+
+
+pageTitle : Route -> String
+pageTitle route =
+    case route of
+        Root ->
+            "Home"
+
+        Login ->
+            "Sign in"
+
+        NotFound ->
+            "Not found"
+
+
+view : Model -> Browser.Document Msg
 view model =
-    div [ class "flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-900 text-slate-100" ]
-        [ h1 [ class "text-2xl font-semibold" ] [ text "Axum + Elm" ]
-        , button
-            [ class "rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-400"
-            , onClick FetchHello
-            ]
-            [ text "Fetch hello" ]
-        , viewResult model.status
+    { title = pageTitle model.route
+    , body =
+        [ div [ class "flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
+            [ viewPage model ]
         ]
+    }
 
 
-viewResult : Status -> Html Msg
-viewResult status =
-    let
-        box : String -> Html Msg
-        box content =
-            pre
-                [ class "w-80 overflow-x-auto rounded-lg border border-slate-700 bg-slate-800 p-4 text-sm text-slate-100" ]
-                [ text content ]
-    in
-    case status of
-        Idle ->
-            box "Click the button to fetch."
+{-| Pick the page for the route. The guard has already redirected any session
+that is not allowed here, so each page only needs to handle its own session.
+-}
+viewPage : Model -> Html Msg
+viewPage model =
+    case model.route of
+        NotFound ->
+            viewNotFound
 
-        Loading ->
-            box "Loading..."
+        Login ->
+            case model.session of
+                SignedIn _ ->
+                    viewLoading
 
-        Loaded hello ->
-            box (Json.Encode.encode 4 (helloResponseEncoder hello))
+                _ ->
+                    Html.map LoginMsg (Login.view model.login)
 
-        Failed message ->
-            box message
+        Root ->
+            case model.session of
+                SignedIn user ->
+                    Html.map RootMsg (RootPage.view user)
+
+                _ ->
+                    viewLoading
+
+
+viewLoading : Html Msg
+viewLoading =
+    p [ class "text-sm text-zinc-500" ] [ text "Loading..." ]
+
+
+viewNotFound : Html Msg
+viewNotFound =
+    div [ class "flex flex-col items-center gap-3" ]
+        [ h1 [ class "text-lg font-semibold tracking-tight text-zinc-900" ] [ text "Not found" ]
+        , a
+            [ href "/"
+            , class "text-sm font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
+            ]
+            [ text "Go home" ]
+        ]
