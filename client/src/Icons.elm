@@ -5,6 +5,7 @@ module Icons exposing
     , plus
     , roles
     , search
+    , security
     , users
     )
 
@@ -60,3 +61,8 @@ arrowRight =
 search : Html msg
 search =
     icon "search"
+
+
+security : Html msg
+security =
+    icon "lock"

@@ -38,6 +38,7 @@ type alias Config msg =
     , menuOpen : Bool
     , onToggleMenu : msg
     , onLogout : msg
+    , onSecurity : msg
     }
 
 
@@ -70,25 +71,32 @@ viewUser config =
                     text ""
             ]
         , if config.menuOpen then
-            viewMenu config.t.logOut config.onToggleMenu config.onLogout
+            viewMenu config
 
           else
             text ""
         ]
 
 
-viewMenu : String -> msg -> msg -> Html msg
-viewMenu logOutLabel onToggleMenu onLogout =
+viewMenu : Config msg -> Html msg
+viewMenu config =
     div []
-        [ div [ class "fixed inset-0 z-40", onClick onToggleMenu ] []
+        [ div [ class "fixed inset-0 z-40", onClick config.onToggleMenu ] []
         , div [ class "absolute bottom-full left-0 z-50 mb-1 w-full rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" ]
-            [ button
-                [ onClick onLogout
-                , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
-                ]
-                [ Icons.logOut, text logOutLabel ]
+            [ menuItemWithIcon config.onSecurity Icons.security config.t.security
+            , div [ class "my-1 border-t border-zinc-100" ] []
+            , menuItemWithIcon config.onLogout Icons.logOut config.t.logOut
             ]
         ]
+
+
+menuItemWithIcon : msg -> Html msg -> String -> Html msg
+menuItemWithIcon onSelect icon label =
+    button
+        [ onClick onSelect
+        , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+        ]
+        [ icon, text label ]
 
 
 brand : T -> Html msg

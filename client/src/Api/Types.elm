@@ -78,6 +78,7 @@ type alias MeResponse =
     , name : Maybe String
     , isAdmin : Bool
     , permissions : List String
+    , totpEnabled : Bool
     }
 
 
@@ -89,6 +90,7 @@ meResponseEncoder struct =
         , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
         , ( "is_admin", Json.Encode.bool struct.isAdmin )
         , ( "permissions", Json.Encode.list Json.Encode.string struct.permissions )
+        , ( "totp_enabled", Json.Encode.bool struct.totpEnabled )
         ]
 
 
@@ -96,6 +98,7 @@ type AuthError
     = InvalidCredentials
     | AccountDeactivated
     | NotSignedIn
+    | InvalidCode
 
 
 authErrorEncoder : AuthError -> Json.Encode.Value
@@ -109,6 +112,9 @@ authErrorEncoder enum =
 
         NotSignedIn ->
             Json.Encode.string "NotSignedIn"
+
+        InvalidCode ->
+            Json.Encode.string "InvalidCode"
 
 
 type alias CreateUser =
@@ -243,6 +249,104 @@ clientMessageEncoder enum =
             Json.Encode.object [ ( "SendBroadcast", Json.Encode.object [ ( "text", Json.Encode.string text ) ] ) ]
 
 
+type LoginResponse
+    = Authenticated { user : UserResponse }
+    | TotpRequired
+
+
+loginResponseEncoder : LoginResponse -> Json.Encode.Value
+loginResponseEncoder enum =
+    case enum of
+        Authenticated { user } ->
+            Json.Encode.object [ ( "Authenticated", Json.Encode.object [ ( "user", userResponseEncoder user ) ] ) ]
+
+        TotpRequired ->
+            Json.Encode.string "TotpRequired"
+
+
+type alias ChangePassword =
+    { currentPassword : String
+    , newPassword : String
+    }
+
+
+changePasswordEncoder : ChangePassword -> Json.Encode.Value
+changePasswordEncoder struct =
+    Json.Encode.object
+        [ ( "current_password", Json.Encode.string struct.currentPassword )
+        , ( "new_password", Json.Encode.string struct.newPassword )
+        ]
+
+
+type PasswordError
+    = IncorrectPassword
+    | PasswordTooShort
+
+
+passwordErrorEncoder : PasswordError -> Json.Encode.Value
+passwordErrorEncoder enum =
+    case enum of
+        IncorrectPassword ->
+            Json.Encode.string "IncorrectPassword"
+
+        PasswordTooShort ->
+            Json.Encode.string "PasswordTooShort"
+
+
+type alias TotpSetup =
+    { secret : String
+    , otpauthUrl : String
+    , qrPng : String
+    }
+
+
+totpSetupEncoder : TotpSetup -> Json.Encode.Value
+totpSetupEncoder struct =
+    Json.Encode.object
+        [ ( "secret", Json.Encode.string struct.secret )
+        , ( "otpauth_url", Json.Encode.string struct.otpauthUrl )
+        , ( "qr_png", Json.Encode.string struct.qrPng )
+        ]
+
+
+type alias TotpCode =
+    { code : String
+    }
+
+
+totpCodeEncoder : TotpCode -> Json.Encode.Value
+totpCodeEncoder struct =
+    Json.Encode.object
+        [ ( "code", Json.Encode.string struct.code )
+        ]
+
+
+type alias TotpConfirm =
+    { secret : String
+    , code : String
+    }
+
+
+totpConfirmEncoder : TotpConfirm -> Json.Encode.Value
+totpConfirmEncoder struct =
+    Json.Encode.object
+        [ ( "secret", Json.Encode.string struct.secret )
+        , ( "code", Json.Encode.string struct.code )
+        ]
+
+
+type alias TotpDisable =
+    { password : String
+    }
+
+
+totpDisableEncoder : TotpDisable -> Json.Encode.Value
+totpDisableEncoder struct =
+    Json.Encode.object
+        [ ( "password", Json.Encode.string struct.password )
+        ]
+
+
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
 helloResponseDecoder =
     Json.Decode.succeed HelloResponse
@@ -273,6 +377,7 @@ meResponseDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "permissions" (Json.Decode.list Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "totp_enabled" Json.Decode.bool))
 
 
 authErrorDecoder : Json.Decode.Decoder AuthError
@@ -304,6 +409,16 @@ authErrorDecoder =
                     case x of
                         "NotSignedIn" ->
                             Json.Decode.succeed NotSignedIn
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "InvalidCode" ->
+                            Json.Decode.succeed InvalidCode
 
                         unexpected ->
                             Json.Decode.fail <| "Unexpected variant " ++ unexpected
@@ -392,3 +507,84 @@ clientMessageDecoder =
     Json.Decode.oneOf
         [ Json.Decode.field "SendBroadcast" (Json.Decode.succeed elmRsConstructSendBroadcast |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" Json.Decode.string)))
         ]
+
+
+loginResponseDecoder : Json.Decode.Decoder LoginResponse
+loginResponseDecoder =
+    let
+        elmRsConstructAuthenticated user =
+            Authenticated { user = user }
+    in
+    Json.Decode.oneOf
+        [ Json.Decode.field "Authenticated" (Json.Decode.succeed elmRsConstructAuthenticated |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "user" userResponseDecoder)))
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "TotpRequired" ->
+                            Json.Decode.succeed TotpRequired
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        ]
+
+
+changePasswordDecoder : Json.Decode.Decoder ChangePassword
+changePasswordDecoder =
+    Json.Decode.succeed ChangePassword
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "current_password" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "new_password" Json.Decode.string))
+
+
+passwordErrorDecoder : Json.Decode.Decoder PasswordError
+passwordErrorDecoder =
+    Json.Decode.oneOf
+        [ Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "IncorrectPassword" ->
+                            Json.Decode.succeed IncorrectPassword
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "PasswordTooShort" ->
+                            Json.Decode.succeed PasswordTooShort
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        ]
+
+
+totpSetupDecoder : Json.Decode.Decoder TotpSetup
+totpSetupDecoder =
+    Json.Decode.succeed TotpSetup
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "secret" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "otpauth_url" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "qr_png" Json.Decode.string))
+
+
+totpCodeDecoder : Json.Decode.Decoder TotpCode
+totpCodeDecoder =
+    Json.Decode.succeed TotpCode
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "code" Json.Decode.string))
+
+
+totpConfirmDecoder : Json.Decode.Decoder TotpConfirm
+totpConfirmDecoder =
+    Json.Decode.succeed TotpConfirm
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "secret" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "code" Json.Decode.string))
+
+
+totpDisableDecoder : Json.Decode.Decoder TotpDisable
+totpDisableDecoder =
+    Json.Decode.succeed TotpDisable
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))

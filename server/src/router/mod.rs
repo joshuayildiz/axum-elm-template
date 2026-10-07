@@ -13,6 +13,7 @@ use tokio::sync::broadcast;
 pub(crate) struct AppState {
     pub(crate) pool: sqlx::PgPool,
     pub(crate) jwt_secret: Arc<str>,
+    pub(crate) totp_issuer: Arc<str>,
     // Open websocket connections per user id. A count, not a flag, so many tabs
     // for one user read as one online user.
     pub(crate) presence: Arc<Mutex<HashMap<String, usize>>>,

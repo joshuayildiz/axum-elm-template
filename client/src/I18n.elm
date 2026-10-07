@@ -165,6 +165,31 @@ type alias T =
     , broadcastPlaceholder : String
     , broadcastSend : String
     , broadcastEmpty : String
+    , security : String
+    , account : String
+    , changePassword : String
+    , currentPassword : String
+    , newPassword : String
+    , updatePassword : String
+    , passwordUpdated : String
+    , errIncorrectPassword : String
+    , errPasswordTooShort : String
+    , twoFactor : String
+    , twoFactorOn : String
+    , twoFactorOff : String
+    , twoFactorIntro : String
+    , twoFactorSecretLabel : String
+    , code : String
+    , codePlaceholder : String
+    , turnOn : String
+    , turnOff : String
+    , setUp : String
+    , twoFactorEnabledMsg : String
+    , twoFactorDisabledMsg : String
+    , close : String
+    , enterCode : String
+    , verify : String
+    , authInvalidCode : String
     }
 
 
@@ -244,6 +269,31 @@ en =
     , broadcastPlaceholder = "Send a line to everyone"
     , broadcastSend = "Send"
     , broadcastEmpty = "No messages yet."
+    , security = "Security"
+    , account = "Account"
+    , changePassword = "Change password"
+    , currentPassword = "Current password"
+    , newPassword = "New password"
+    , updatePassword = "Update password"
+    , passwordUpdated = "Password updated."
+    , errIncorrectPassword = "Your current password is incorrect."
+    , errPasswordTooShort = "The new password must be at least 8 characters."
+    , twoFactor = "Two-factor authentication"
+    , twoFactorOn = "Two-factor is on."
+    , twoFactorOff = "Two-factor is off."
+    , twoFactorIntro = "Scan this code with an authenticator app, then enter the 6-digit code to turn it on."
+    , twoFactorSecretLabel = "Or enter this secret by hand:"
+    , code = "Code"
+    , codePlaceholder = "123456"
+    , turnOn = "Turn on"
+    , turnOff = "Turn off"
+    , setUp = "Set up"
+    , twoFactorEnabledMsg = "Two-factor is now on."
+    , twoFactorDisabledMsg = "Two-factor is now off."
+    , close = "Close"
+    , enterCode = "Enter the code from your authenticator app."
+    , verify = "Verify"
+    , authInvalidCode = "That code is not valid. Try again."
     }
 
 
@@ -323,4 +373,29 @@ tr =
     , broadcastPlaceholder = "Herkese bir satır gönderin"
     , broadcastSend = "Gönder"
     , broadcastEmpty = "Henüz mesaj yok."
+    , security = "Güvenlik"
+    , account = "Hesap"
+    , changePassword = "Parolayı değiştir"
+    , currentPassword = "Mevcut parola"
+    , newPassword = "Yeni parola"
+    , updatePassword = "Parolayı güncelle"
+    , passwordUpdated = "Parola güncellendi."
+    , errIncorrectPassword = "Mevcut parolanız hatalı."
+    , errPasswordTooShort = "Yeni parola en az 8 karakter olmalı."
+    , twoFactor = "İki adımlı doğrulama"
+    , twoFactorOn = "İki adımlı doğrulama açık."
+    , twoFactorOff = "İki adımlı doğrulama kapalı."
+    , twoFactorIntro = "Bu kodu bir kimlik doğrulama uygulamasıyla tarayın, sonra açmak için 6 haneli kodu girin."
+    , twoFactorSecretLabel = "Veya bu gizli anahtarı elle girin:"
+    , code = "Kod"
+    , codePlaceholder = "123456"
+    , turnOn = "Aç"
+    , turnOff = "Kapat"
+    , setUp = "Kur"
+    , twoFactorEnabledMsg = "İki adımlı doğrulama artık açık."
+    , twoFactorDisabledMsg = "İki adımlı doğrulama artık kapalı."
+    , close = "Kapat"
+    , enterCode = "Kimlik doğrulama uygulamanızdaki kodu girin."
+    , verify = "Doğrula"
+    , authInvalidCode = "Bu kod geçerli değil. Tekrar deneyin."
     }

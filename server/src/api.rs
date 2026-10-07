@@ -7,10 +7,14 @@ pub(crate) fn genelm() -> io::Result<()> {
     elm_rs::export!("Api.Types", &mut buf, {
         encoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
-                   RoleBody, PermissionInfo, ServerMessage, ClientMessage],
+                   RoleBody, PermissionInfo, ServerMessage, ClientMessage,
+                   LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
+                   TotpConfirm, TotpDisable],
         decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
-                   RoleBody, PermissionInfo, ServerMessage, ClientMessage],
+                   RoleBody, PermissionInfo, ServerMessage, ClientMessage,
+                   LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
+                   TotpConfirm, TotpDisable],
     })
     .expect("error generating Elm bindings");
     println!(
@@ -46,6 +50,7 @@ pub(crate) struct MeResponse {
     pub(crate) name: Option<String>,
     pub(crate) is_admin: bool,
     pub(crate) permissions: Vec<String>,
+    pub(crate) totp_enabled: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
@@ -53,6 +58,48 @@ pub(crate) enum AuthError {
     InvalidCredentials,
     AccountDeactivated,
     NotSignedIn,
+    InvalidCode,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum LoginResponse {
+    Authenticated { user: UserResponse },
+    TotpRequired,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct ChangePassword {
+    pub(crate) current_password: String,
+    pub(crate) new_password: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum PasswordError {
+    IncorrectPassword,
+    PasswordTooShort,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct TotpSetup {
+    pub(crate) secret: String,
+    pub(crate) otpauth_url: String,
+    pub(crate) qr_png: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct TotpCode {
+    pub(crate) code: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct TotpConfirm {
+    pub(crate) secret: String,
+    pub(crate) code: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct TotpDisable {
+    pub(crate) password: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
@@ -129,6 +176,7 @@ impl axum::response::IntoResponse for AuthError {
             AuthError::InvalidCredentials => StatusCode::UNAUTHORIZED,
             AuthError::AccountDeactivated => StatusCode::FORBIDDEN,
             AuthError::NotSignedIn => StatusCode::UNAUTHORIZED,
+            AuthError::InvalidCode => StatusCode::UNAUTHORIZED,
         };
         (status, axum::Json(self)).into_response()
     }

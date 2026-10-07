@@ -6,18 +6,28 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(crate) struct Claims {
     pub(crate) sub: String,
     pub(crate) exp: usize,
+    pub(crate) totp_pending: bool,
 }
 
 pub(crate) fn sign_token(user_id: &str, secret: &str) -> String {
+    sign(user_id, secret, 60, false)
+}
+
+pub(crate) fn sign_pending_token(user_id: &str, secret: &str) -> String {
+    sign(user_id, secret, 300, true)
+}
+
+fn sign(user_id: &str, secret: &str, ttl_seconds: usize, totp_pending: bool) -> String {
     let exp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock is after the epoch")
         .as_secs() as usize
-        + 60; // one minute
+        + ttl_seconds;
 
     let claims = Claims {
         sub: user_id.to_string(),
         exp,
+        totp_pending,
     };
 
     encode(

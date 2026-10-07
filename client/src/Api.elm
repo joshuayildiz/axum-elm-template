@@ -1,5 +1,6 @@
 module Api exposing
     ( assignRole
+    , changePassword
     , createRole
     , createUser
     , deleteRole
@@ -15,36 +16,53 @@ module Api exposing
     , listRoles
     , listUsers
     , login
+    , loginTotp
     , logout
     , removeRole
     , setRolePermissions
     , setUserPermissions
+    , totpDisable
+    , totpEnable
+    , totpSetup
     , updateRole
     )
 
 import Api.Types
     exposing
         ( AuthError
+        , ChangePassword
         , CreateRole
         , CreateUser
         , HelloResponse
         , LoginRequest
+        , LoginResponse
         , MeResponse
+        , PasswordError
         , PermissionInfo
         , RoleBody
         , RoleResponse
+        , TotpConfirm
+        , TotpDisable
+        , TotpSetup
         , UserResponse
         , authErrorDecoder
+        , changePasswordEncoder
         , createRoleEncoder
         , createUserEncoder
         , helloResponseDecoder
         , loginRequestEncoder
+        , loginResponseDecoder
         , meResponseDecoder
+        , passwordErrorDecoder
         , permissionInfoDecoder
         , permissionsBodyEncoder
         , resultDecoder
         , roleBodyEncoder
         , roleResponseDecoder
+        , totpCodeEncoder
+        , totpConfirmEncoder
+        , totpDisableEncoder
+        , totpSetupDecoder
         , userResponseDecoder
         )
 import Http
@@ -60,12 +78,57 @@ getHello toMsg =
         }
 
 
-login : LoginRequest -> (Result Http.Error (Result AuthError UserResponse) -> msg) -> Cmd msg
+login : LoginRequest -> (Result Http.Error (Result AuthError LoginResponse) -> msg) -> Cmd msg
 login request toMsg =
     Http.post
         { url = "/api/v1/auth/login"
         , body = Http.jsonBody (loginRequestEncoder request)
-        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder userResponseDecoder)
+        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder loginResponseDecoder)
+        }
+
+
+loginTotp : String -> (Result Http.Error (Result AuthError LoginResponse) -> msg) -> Cmd msg
+loginTotp code toMsg =
+    Http.post
+        { url = "/api/v1/auth/login/totp"
+        , body = Http.jsonBody (totpCodeEncoder { code = code })
+        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder loginResponseDecoder)
+        }
+
+
+changePassword : ChangePassword -> (Result Http.Error (Result PasswordError ()) -> msg) -> Cmd msg
+changePassword body toMsg =
+    Http.post
+        { url = "/api/v1/auth/password"
+        , body = Http.jsonBody (changePasswordEncoder body)
+        , expect = Http.expectJson toMsg (resultDecoder passwordErrorDecoder (Decode.null ()))
+        }
+
+
+totpSetup : (Result Http.Error TotpSetup -> msg) -> Cmd msg
+totpSetup toMsg =
+    Http.post
+        { url = "/api/v1/auth/totp/setup"
+        , body = Http.emptyBody
+        , expect = Http.expectJson toMsg totpSetupDecoder
+        }
+
+
+totpEnable : TotpConfirm -> (Result Http.Error (Result AuthError ()) -> msg) -> Cmd msg
+totpEnable body toMsg =
+    Http.post
+        { url = "/api/v1/auth/totp/enable"
+        , body = Http.jsonBody (totpConfirmEncoder body)
+        , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder (Decode.null ()))
+        }
+
+
+totpDisable : TotpDisable -> (Result Http.Error (Result PasswordError ()) -> msg) -> Cmd msg
+totpDisable body toMsg =
+    Http.post
+        { url = "/api/v1/auth/totp/disable"
+        , body = Http.jsonBody (totpDisableEncoder body)
+        , expect = Http.expectJson toMsg (resultDecoder passwordErrorDecoder (Decode.null ()))
         }
 
 

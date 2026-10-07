@@ -15,6 +15,7 @@ pub(crate) struct CurrentUser {
     pub(crate) email: String,
     pub(crate) name: Option<String>,
     pub(crate) is_admin: bool,
+    pub(crate) totp_enabled: bool,
 }
 
 impl From<CurrentUser> for UserResponse {
@@ -64,13 +65,18 @@ pub(crate) async fn require_auth(
         return not_signed_in();
     };
 
+    if claims.totp_pending {
+        return not_signed_in();
+    }
+
     let Ok(id) = uuid::Uuid::parse_str(&claims.sub) else {
         return not_signed_in();
     };
 
     let row = sqlx::query!(
         r#"
-        select id, email, name, is_admin
+        select id, email, name, is_admin,
+               (totp_secret is not null) as "totp_enabled!"
         from users
         where id = $1 and deleted_at is null
         "#,
@@ -89,6 +95,7 @@ pub(crate) async fn require_auth(
         email: row.email,
         name: row.name,
         is_admin: row.is_admin,
+        totp_enabled: row.totp_enabled,
     };
 
     request.extensions_mut().insert(user.clone());

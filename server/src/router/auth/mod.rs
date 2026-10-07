@@ -1,7 +1,10 @@
 pub(crate) mod extractors;
 
 use super::AppState;
-use crate::api::{AuthError, LoginRequest, MeResponse, UserResponse};
+use crate::api::{
+    AuthError, ChangePassword, LoginRequest, LoginResponse, MeResponse, PasswordError, TotpCode,
+    TotpConfirm, TotpDisable, TotpSetup, UserResponse,
+};
 use axum::Json;
 use axum::Router;
 use axum::extract::State;
@@ -10,14 +13,21 @@ use axum::routing::{get, post};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use extractors::{CurrentUser, require_auth};
 use std::sync::LazyLock;
+use totp_rs::{Algorithm, Builder, Secret, Totp};
+use uuid::Uuid;
 
 pub(crate) fn routes(state: AppState) -> Router<AppState> {
     let protected = Router::new()
         .route("/api/v1/auth/me", get(me))
+        .route("/api/v1/auth/password", post(change_password))
+        .route("/api/v1/auth/totp/setup", post(totp_setup))
+        .route("/api/v1/auth/totp/enable", post(totp_enable))
+        .route("/api/v1/auth/totp/disable", post(totp_disable))
         .route_layer(axum::middleware::from_fn_with_state(state, require_auth));
 
     Router::new()
         .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/login/totp", post(login_totp))
         .route("/api/v1/auth/logout", post(logout))
         .merge(protected)
 }
@@ -26,10 +36,10 @@ async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(body): Json<LoginRequest>,
-) -> (CookieJar, Json<Result<UserResponse, AuthError>>) {
+) -> (CookieJar, Json<Result<LoginResponse, AuthError>>) {
     let row = sqlx::query!(
         r#"
-        select id::text as "id!", email, password_hash, name, is_admin,
+        select id::text as "id!", email, password_hash, name, is_admin, totp_secret,
                (deleted_at is not null) as "deactivated!"
         from users
         where email = $1
@@ -54,25 +64,69 @@ async fn login(
         return (jar, Json(Err(AuthError::AccountDeactivated)));
     }
 
-    let token = crate::jwt::sign_token(&row.id, &state.jwt_secret);
+    if row.totp_secret.is_some() {
+        let pending = crate::jwt::sign_pending_token(&row.id, &state.jwt_secret);
+        return (
+            jar.add(token_cookie(pending)),
+            Json(Ok(LoginResponse::TotpRequired)),
+        );
+    }
 
-    sqlx::query!(
-        "update users set last_login_at = now() where email = $1",
-        row.email.as_str()
+    let user = finish_login(&state, &row.id, row.email, row.name, row.is_admin).await;
+    (jar.add(token_cookie_for(&state, &row.id)), Json(Ok(user)))
+}
+
+async fn login_totp(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<TotpCode>,
+) -> (CookieJar, Json<Result<LoginResponse, AuthError>>) {
+    let Some(claims) = jar
+        .get("token")
+        .and_then(|cookie| crate::jwt::read_token(cookie.value(), &state.jwt_secret).ok())
+        .filter(|claims| claims.totp_pending)
+    else {
+        return (jar, Json(Err(AuthError::NotSignedIn)));
+    };
+
+    let Ok(id) = Uuid::parse_str(&claims.sub) else {
+        return (jar, Json(Err(AuthError::NotSignedIn)));
+    };
+
+    let row = sqlx::query!(
+        r#"
+        select id::text as "id!", email, name, is_admin, totp_secret,
+               (deleted_at is not null) as "deactivated!"
+        from users
+        where id = $1 and totp_secret is not null
+        "#,
+        id
     )
-    .execute(&state.pool)
+    .fetch_optional(&state.pool)
     .await
-    .expect("error updating last login time");
+    .expect("error querying user");
 
-    (
-        jar.add(token_cookie(token)),
-        Json(Ok(UserResponse {
-            id: row.id,
-            email: row.email,
-            name: row.name,
-            is_admin: row.is_admin,
-        })),
-    )
+    let Some(row) = row else {
+        return (jar, Json(Err(AuthError::NotSignedIn)));
+    };
+
+    if row.deactivated {
+        return (jar, Json(Err(AuthError::AccountDeactivated)));
+    }
+
+    let valid = row
+        .totp_secret
+        .as_deref()
+        .and_then(|secret| build_totp(&state.totp_issuer, secret, &row.email))
+        .and_then(|totp| totp.check_current(&body.code))
+        .is_some();
+
+    if !valid {
+        return (jar, Json(Err(AuthError::InvalidCode)));
+    }
+
+    let user = finish_login(&state, &row.id, row.email, row.name, row.is_admin).await;
+    (jar.add(token_cookie_for(&state, &row.id)), Json(Ok(user)))
 }
 
 async fn me(
@@ -85,7 +139,106 @@ async fn me(
         name: user.name,
         is_admin: user.is_admin,
         permissions: perms.names(),
+        totp_enabled: user.totp_enabled,
     }))
+}
+
+async fn change_password(
+    user: CurrentUser,
+    State(state): State<AppState>,
+    Json(body): Json<ChangePassword>,
+) -> Json<Result<(), PasswordError>> {
+    let id = parse_id(&user.id);
+
+    let row = sqlx::query!("select password_hash from users where id = $1", id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("error querying user");
+
+    if !verify_password(&body.current_password, &row.password_hash) {
+        return Json(Err(PasswordError::IncorrectPassword));
+    }
+
+    if body.new_password.len() < 8 {
+        return Json(Err(PasswordError::PasswordTooShort));
+    }
+
+    let hash = hash_password(&body.new_password);
+    sqlx::query!(
+        "update users set password_hash = $1 where id = $2",
+        hash,
+        id
+    )
+    .execute(&state.pool)
+    .await
+    .expect("error updating password");
+
+    Json(Ok(()))
+}
+
+async fn totp_setup(user: CurrentUser, State(state): State<AppState>) -> Json<TotpSetup> {
+    let secret = Secret::generate().to_base32();
+
+    let totp = build_totp(&state.totp_issuer, &secret, &user.email)
+        .expect("error building totp for a fresh secret");
+    let otpauth_url = totp.to_url().expect("error building totp url");
+    let qr = totp.to_qr_base64().expect("error building totp qr code");
+
+    Json(TotpSetup {
+        secret,
+        otpauth_url,
+        qr_png: format!("data:image/png;base64,{qr}"),
+    })
+}
+
+async fn totp_enable(
+    user: CurrentUser,
+    State(state): State<AppState>,
+    Json(body): Json<TotpConfirm>,
+) -> Json<Result<(), AuthError>> {
+    let valid = build_totp(&state.totp_issuer, &body.secret, &user.email)
+        .and_then(|totp| totp.check_current(&body.code))
+        .is_some();
+
+    if !valid {
+        return Json(Err(AuthError::InvalidCode));
+    }
+
+    let id = parse_id(&user.id);
+    sqlx::query!(
+        "update users set totp_secret = $1 where id = $2",
+        body.secret,
+        id
+    )
+    .execute(&state.pool)
+    .await
+    .expect("error enabling totp");
+
+    Json(Ok(()))
+}
+
+async fn totp_disable(
+    user: CurrentUser,
+    State(state): State<AppState>,
+    Json(body): Json<TotpDisable>,
+) -> Json<Result<(), PasswordError>> {
+    let id = parse_id(&user.id);
+
+    let row = sqlx::query!("select password_hash from users where id = $1", id)
+        .fetch_one(&state.pool)
+        .await
+        .expect("error querying user");
+
+    if !verify_password(&body.password, &row.password_hash) {
+        return Json(Err(PasswordError::IncorrectPassword));
+    }
+
+    sqlx::query!("update users set totp_secret = null where id = $1", id)
+        .execute(&state.pool)
+        .await
+        .expect("error disabling totp");
+
+    Json(Ok(()))
 }
 
 // Logout clears the cookie. It needs no auth, because a stale token holder must
@@ -101,6 +254,62 @@ fn token_cookie(token: String) -> Cookie<'static> {
         .same_site(SameSite::Lax)
         .path("/")
         .build()
+}
+
+async fn finish_login(
+    state: &AppState,
+    id: &str,
+    email: String,
+    name: Option<String>,
+    is_admin: bool,
+) -> LoginResponse {
+    sqlx::query!(
+        "update users set last_login_at = now() where id = $1",
+        parse_id(id)
+    )
+    .execute(&state.pool)
+    .await
+    .expect("error updating last login time");
+
+    LoginResponse::Authenticated {
+        user: UserResponse {
+            id: id.to_string(),
+            email,
+            name,
+            is_admin,
+        },
+    }
+}
+
+fn token_cookie_for(state: &AppState, id: &str) -> Cookie<'static> {
+    token_cookie(crate::jwt::sign_token(id, &state.jwt_secret))
+}
+
+fn parse_id(id: &str) -> Uuid {
+    Uuid::parse_str(id).expect("error parsing user id")
+}
+
+fn build_totp(issuer: &str, secret: &str, email: &str) -> Option<Totp> {
+    let secret = Secret::try_from_base32(secret).ok()?;
+    Builder::new()
+        .with_algorithm(Algorithm::SHA1)
+        .with_digits(6)
+        .with_skew(1)
+        .with_step_duration(30)
+        .with_secret(secret)
+        .with_issuer(Some(issuer))
+        .with_account_name(email)
+        .build()
+        .ok()
+}
+
+fn hash_password(password: &str) -> String {
+    use argon2::{Argon2, PasswordHasher};
+
+    Argon2::default()
+        .hash_password(password.as_bytes())
+        .expect("error hashing password")
+        .to_string()
 }
 
 fn verify_password(password: &str, hash: &str) -> bool {

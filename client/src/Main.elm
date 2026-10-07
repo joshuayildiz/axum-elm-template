@@ -4,6 +4,7 @@ import Api
 import Api.Types exposing (AuthError, MeResponse, ServerMessage(..), clientMessageEncoder, serverMessageDecoder)
 import Browser
 import Browser.Navigation as Nav
+import Components.Account as Account
 import Components.LangSwitcher as LangSwitcher
 import Components.Sidebar as Sidebar
 import Html exposing (Html, a, div, h1, p, text)
@@ -85,6 +86,7 @@ type alias Model =
     , users : Users.Model
     , roles : Roles.Model
     , userMenuOpen : Bool
+    , account : Maybe Account.Model
     , online : Set String
     , draft : String
     , messages : List ChatLine
@@ -100,6 +102,8 @@ type Msg
     | RolesMsg Roles.Msg
     | SetLang Lang
     | ToggleUserMenu
+    | OpenAccount Account.Tab
+    | AccountMsg Account.Msg
     | Logout
     | LoggedOut (Result Http.Error ())
     | Tick
@@ -130,6 +134,7 @@ init flags url key =
       , users = Users.init
       , roles = Roles.init
       , userMenuOpen = False
+      , account = Nothing
       , online = Set.empty
       , draft = ""
       , messages = []
@@ -304,7 +309,7 @@ update msg model =
                             { model | session = session }
 
                         _ ->
-                            { model | session = session, online = Set.empty, messages = [] }
+                            { model | session = session, account = Nothing, online = Set.empty, messages = [] }
             in
             ( next, Cmd.batch [ guard next, enter next, socketCmd ] )
 
@@ -334,6 +339,41 @@ update msg model =
         ToggleUserMenu ->
             ( { model | userMenuOpen = not model.userMenuOpen }, Cmd.none )
 
+        OpenAccount tab ->
+            case model.session of
+                SignedIn me ->
+                    ( { model | account = Just (Account.init tab me.totpEnabled), userMenuOpen = False }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        AccountMsg subMsg ->
+            case model.account of
+                Just account ->
+                    let
+                        ( updated, cmd, event ) =
+                            Account.update subMsg account
+
+                        ( nextAccount, extra ) =
+                            case event of
+                                Account.NoEvent ->
+                                    ( Just updated, Cmd.none )
+
+                                Account.Close ->
+                                    ( Nothing, Cmd.none )
+
+                                Account.TotpChanged _ ->
+                                    ( Just updated, Api.getMe GotMe )
+                    in
+                    ( { model | account = nextAccount }
+                    , Cmd.batch [ Cmd.map AccountMsg cmd, extra ]
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
         Logout ->
             ( model, Api.logout LoggedOut )
 
@@ -342,7 +382,7 @@ update msg model =
             -- cookie is short lived, so a lost call still ends the session soon.
             let
                 next =
-                    { model | session = Anonymous, userMenuOpen = False, online = Set.empty, messages = [] }
+                    { model | session = Anonymous, userMenuOpen = False, account = Nothing, online = Set.empty, messages = [] }
             in
             ( next, Cmd.batch [ guard next, disconnectSocket () ] )
 
@@ -487,21 +527,30 @@ permissions allow, so the guard and the sidebar agree on what a user can reach.
 -}
 viewSignedIn : T -> Model -> MeResponse -> Html Msg
 viewSignedIn t model me =
-    div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
-        [ Sidebar.view
-            { t = t
-            , permissions = me.permissions
-            , activePath = pathFor model.route
-            , name = me.name
-            , email = me.email
-            , menuOpen = model.userMenuOpen
-            , onToggleMenu = ToggleUserMenu
-            , onLogout = Logout
-            }
-        , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
-            [ div [ class "flex w-full justify-end" ] [ langSwitcher model.lang ]
-            , viewPage t model me
+    div []
+        [ div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
+            [ Sidebar.view
+                { t = t
+                , permissions = me.permissions
+                , activePath = pathFor model.route
+                , name = me.name
+                , email = me.email
+                , menuOpen = model.userMenuOpen
+                , onToggleMenu = ToggleUserMenu
+                , onLogout = Logout
+                , onSecurity = OpenAccount Account.PasswordTab
+                }
+            , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
+                [ div [ class "flex w-full justify-end" ] [ langSwitcher model.lang ]
+                , viewPage t model me
+                ]
             ]
+        , case model.account of
+            Just account ->
+                Html.map AccountMsg (Account.view t account)
+
+            Nothing ->
+                text ""
         ]
 
 
