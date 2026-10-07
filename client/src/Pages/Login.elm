@@ -6,8 +6,8 @@ import Browser.Dom as Dom
 import Components.Button as Button
 import Components.Card as Card
 import Components.Input as Input
-import Html exposing (Html, div, form, h1, input, p, span, text)
-import Html.Attributes exposing (attribute, autofocus, class, disabled, id, type_, value)
+import Html exposing (Html, a, div, form, h1, input, p, span, text)
+import Html.Attributes exposing (attribute, autofocus, class, disabled, href, id, type_, value)
 import Html.Events exposing (on, onInput, onSubmit)
 import Http
 import I18n exposing (T)
@@ -221,13 +221,13 @@ authErrorMessage t error =
             t.authInvalidCode
 
 
-view : T -> String -> Model -> Html Msg
-view t companyName model =
+view : T -> String -> Bool -> Model -> Html Msg
+view t companyName registrationEnabled model =
     div [ class "flex w-full max-w-sm flex-col items-center gap-6" ]
         [ viewBrand companyName
         , case model.step of
             Credentials ->
-                viewCredentials t model
+                viewCredentials t registrationEnabled model
 
             AwaitingCode ->
                 viewCode t model
@@ -243,8 +243,8 @@ viewBrand name =
         ]
 
 
-viewCredentials : T -> Model -> Html Msg
-viewCredentials t model =
+viewCredentials : T -> Bool -> Model -> Html Msg
+viewCredentials t registrationEnabled model =
     Card.view
         [ form [ class "flex flex-col gap-5", onSubmit SubmitLogin ]
             [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.signIn ]
@@ -272,8 +272,25 @@ viewCredentials t model =
                         t.signIn
                     )
                 ]
+            , viewRegisterLink t registrationEnabled
             ]
         ]
+
+
+viewRegisterLink : T -> Bool -> Html Msg
+viewRegisterLink t registrationEnabled =
+    if registrationEnabled then
+        p [ class "text-center text-[13px] text-zinc-500" ]
+            [ text (t.needAccount ++ " ")
+            , a
+                [ href "/register"
+                , class "font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
+                ]
+                [ text t.createAccount ]
+            ]
+
+    else
+        text ""
 
 
 viewCode : T -> Model -> Html Msg

@@ -106,6 +106,10 @@ type alias T =
     , authInvalid : String
     , authDeactivated : String
     , authNotSignedIn : String
+    , createAccount : String
+    , registrationDisabled : String
+    , haveAccount : String
+    , needAccount : String
 
     -- HTTP errors (Api.errorToString). The *Prefix fields are joined with a
     -- value, for example the status code or the URL.
@@ -227,6 +231,10 @@ en =
     , authInvalid = "Incorrect email or password."
     , authDeactivated = "This account is deactivated."
     , authNotSignedIn = "You are not signed in."
+    , createAccount = "Create account"
+    , registrationDisabled = "Registration is turned off."
+    , haveAccount = "Already have an account?"
+    , needAccount = "Need an account?"
     , errBadUrlPrefix = "Bad URL: "
     , errTimeout = "The request timed out."
     , errNetwork = "A network error occurred."
@@ -337,6 +345,10 @@ tr =
     , authInvalid = "E-posta veya parola hatalı."
     , authDeactivated = "Bu hesap devre dışı bırakılmış."
     , authNotSignedIn = "Oturum açmadınız."
+    , createAccount = "Hesap oluştur"
+    , registrationDisabled = "Kayıt kapalı."
+    , haveAccount = "Zaten hesabınız var mı?"
+    , needAccount = "Hesabınız yok mu?"
     , errBadUrlPrefix = "Geçersiz URL: "
     , errTimeout = "İstek zaman aşımına uğradı."
     , errNetwork = "Bir ağ hatası oluştu."

@@ -10,13 +10,13 @@ pub(crate) fn genelm() -> io::Result<()> {
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
                    TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
-                   SettingsBody, PublicConfig],
+                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError],
         decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
                    TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
-                   SettingsBody, PublicConfig],
+                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError],
     })
     .expect("error generating Elm bindings");
     println!(
@@ -174,6 +174,22 @@ pub(crate) struct SettingsBody {
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
 pub(crate) struct PublicConfig {
     pub(crate) company_name: String,
+    pub(crate) registration_enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct RegisterRequest {
+    pub(crate) email: String,
+    pub(crate) password: String,
+    pub(crate) name: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum RegistrationError {
+    RegistrationDisabled,
+    EmailTaken,
+    InvalidEmail,
+    WeakPassword,
 }
 
 // A message the server pushes down the websocket to a client. The server owns

@@ -2,8 +2,9 @@ pub(crate) mod extractors;
 
 use super::AppState;
 use crate::api::{
-    AuthError, ChangePassword, LoginRequest, LoginResponse, MeResponse, PasswordError, TotpCode,
-    TotpConfirm, TotpDisable, TotpSetup, UserResponse,
+    AuthError, ChangePassword, LoginRequest, LoginResponse, MeResponse, PasswordError,
+    RegisterRequest, RegistrationError, TotpCode, TotpConfirm, TotpDisable, TotpSetup,
+    UserResponse,
 };
 use axum::Json;
 use axum::Router;
@@ -26,10 +27,79 @@ pub(crate) fn routes(state: AppState) -> Router<AppState> {
         .route_layer(axum::middleware::from_fn_with_state(state, require_auth));
 
     Router::new()
+        .route("/api/v1/auth/register", post(register))
         .route("/api/v1/auth/login", post(login))
         .route("/api/v1/auth/login/totp", post(login_totp))
         .route("/api/v1/auth/logout", post(logout))
         .merge(protected)
+}
+
+async fn register(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<RegisterRequest>,
+) -> (CookieJar, Json<Result<UserResponse, RegistrationError>>) {
+    use sqlx::error::ErrorKind;
+
+    if !crate::settings::get_bool(&state.pool, crate::settings::REGISTRATION_ENABLED).await {
+        return (jar, Json(Err(RegistrationError::RegistrationDisabled)));
+    }
+
+    let email = body.email.trim();
+    if !email.contains('@') {
+        return (jar, Json(Err(RegistrationError::InvalidEmail)));
+    }
+
+    if body.password.len() < 8 {
+        return (jar, Json(Err(RegistrationError::WeakPassword)));
+    }
+
+    let password_hash = hash_password(&body.password);
+
+    let name = body
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    let result = sqlx::query!(
+        r#"
+        insert into users (email, password_hash, name, is_admin)
+        values ($1, $2, $3, false)
+        returning id::text as "id!", email, name, is_admin
+        "#,
+        email,
+        password_hash,
+        name,
+    )
+    .fetch_one(&state.pool)
+    .await;
+
+    let row = match result {
+        Ok(row) => row,
+        Err(sqlx::Error::Database(e)) if e.kind() == ErrorKind::UniqueViolation => {
+            return (jar, Json(Err(RegistrationError::EmailTaken)));
+        }
+        Err(e) => panic!("error registering user: {e}"),
+    };
+
+    sqlx::query!(
+        "update users set last_login_at = now() where id = $1",
+        parse_id(&row.id)
+    )
+    .execute(&state.pool)
+    .await
+    .expect("error updating last login time");
+
+    (
+        jar.add(token_cookie_for(&state, &row.id)),
+        Json(Ok(UserResponse {
+            id: row.id,
+            email: row.email,
+            name: row.name,
+            is_admin: row.is_admin,
+        })),
+    )
 }
 
 async fn login(

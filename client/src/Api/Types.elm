@@ -408,6 +408,7 @@ settingsBodyEncoder struct =
 
 type alias PublicConfig =
     { companyName : String
+    , registrationEnabled : Bool
     }
 
 
@@ -415,7 +416,47 @@ publicConfigEncoder : PublicConfig -> Json.Encode.Value
 publicConfigEncoder struct =
     Json.Encode.object
         [ ( "company_name", Json.Encode.string struct.companyName )
+        , ( "registration_enabled", Json.Encode.bool struct.registrationEnabled )
         ]
+
+
+type alias RegisterRequest =
+    { email : String
+    , password : String
+    , name : Maybe String
+    }
+
+
+registerRequestEncoder : RegisterRequest -> Json.Encode.Value
+registerRequestEncoder struct =
+    Json.Encode.object
+        [ ( "email", Json.Encode.string struct.email )
+        , ( "password", Json.Encode.string struct.password )
+        , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
+        ]
+
+
+type RegistrationError
+    = RegistrationDisabled
+    | EmailTaken
+    | InvalidEmail
+    | WeakPassword
+
+
+registrationErrorEncoder : RegistrationError -> Json.Encode.Value
+registrationErrorEncoder enum =
+    case enum of
+        RegistrationDisabled ->
+            Json.Encode.string "RegistrationDisabled"
+
+        EmailTaken ->
+            Json.Encode.string "EmailTaken"
+
+        InvalidEmail ->
+            Json.Encode.string "InvalidEmail"
+
+        WeakPassword ->
+            Json.Encode.string "WeakPassword"
 
 
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
@@ -713,3 +754,58 @@ publicConfigDecoder : Json.Decode.Decoder PublicConfig
 publicConfigDecoder =
     Json.Decode.succeed PublicConfig
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "company_name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "registration_enabled" Json.Decode.bool))
+
+
+registerRequestDecoder : Json.Decode.Decoder RegisterRequest
+registerRequestDecoder =
+    Json.Decode.succeed RegisterRequest
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
+
+
+registrationErrorDecoder : Json.Decode.Decoder RegistrationError
+registrationErrorDecoder =
+    Json.Decode.oneOf
+        [ Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "RegistrationDisabled" ->
+                            Json.Decode.succeed RegistrationDisabled
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "EmailTaken" ->
+                            Json.Decode.succeed EmailTaken
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "InvalidEmail" ->
+                            Json.Decode.succeed InvalidEmail
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "WeakPassword" ->
+                            Json.Decode.succeed WeakPassword
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        ]

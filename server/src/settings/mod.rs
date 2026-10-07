@@ -1,6 +1,6 @@
 mod definition;
 
-pub(crate) use definition::{Definition, all, definition, get, set};
+pub(crate) use definition::{Definition, all, definition, get, get_bool, set};
 
 use crate::api::SettingKind;
 

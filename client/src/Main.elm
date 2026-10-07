@@ -14,6 +14,7 @@ import I18n exposing (Lang, T)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Pages.Login as Login
+import Pages.Register as Register
 import Pages.Roles as Roles
 import Pages.Root as RootPage
 import Pages.Settings as Settings
@@ -67,6 +68,7 @@ type alias ChatLine =
 type Route
     = Root
     | Login
+    | Register
     | Users
     | Roles
     | Settings
@@ -85,6 +87,7 @@ type alias Model =
     , session : Session
     , lang : Lang
     , login : Login.Model
+    , register : Register.Model
     , users : Users.Model
     , roles : Roles.Model
     , settings : Settings.Model
@@ -94,6 +97,7 @@ type alias Model =
     , draft : String
     , messages : List ChatLine
     , companyName : String
+    , registrationEnabled : Bool
     }
 
 
@@ -103,6 +107,7 @@ type Msg
     | GotMe (Result Http.Error (Result AuthError MeResponse))
     | GotConfig (Result Http.Error PublicConfig)
     | LoginMsg Login.Msg
+    | RegisterMsg Register.Msg
     | UsersMsg Users.Msg
     | RolesMsg Roles.Msg
     | SettingsMsg Settings.Msg
@@ -137,6 +142,7 @@ init flags url key =
       , session = Checking
       , lang = I18n.fromString flags.language
       , login = Login.init
+      , register = Register.init
       , users = Users.init
       , roles = Roles.init
       , settings = Settings.init
@@ -146,6 +152,7 @@ init flags url key =
       , draft = ""
       , messages = []
       , companyName = ""
+      , registrationEnabled = False
       }
     , Cmd.batch [ Api.getMe GotMe, Api.getConfig GotConfig ]
     )
@@ -156,6 +163,7 @@ routeParser =
     Parser.oneOf
         [ Parser.map Root Parser.top
         , Parser.map Login (Parser.s "login")
+        , Parser.map Register (Parser.s "register")
         , Parser.map Users (Parser.s "users")
         , Parser.map Roles (Parser.s "roles")
         , Parser.map Settings (Parser.s "settings")
@@ -186,6 +194,9 @@ pathFor route =
 
         Login ->
             "/login"
+
+        Register ->
+            "/register"
 
         NotFound ->
             ""
@@ -225,12 +236,18 @@ guard model =
                 Login ->
                     Cmd.none
 
+                Register ->
+                    Cmd.none
+
                 _ ->
                     Nav.replaceUrl model.key "/login"
 
         SignedIn me ->
             case model.route of
                 Login ->
+                    Nav.replaceUrl model.key "/"
+
+                Register ->
                     Nav.replaceUrl model.key "/"
 
                 _ ->
@@ -336,7 +353,7 @@ update msg model =
             ( next, Cmd.batch [ guard next, enter next, socketCmd ] )
 
         GotConfig (Ok config) ->
-            ( { model | companyName = config.companyName }, Cmd.none )
+            ( { model | companyName = config.companyName, registrationEnabled = config.registrationEnabled }, Cmd.none )
 
         GotConfig (Err _) ->
             ( model, Cmd.none )
@@ -360,6 +377,24 @@ update msg model =
                     { model | login = login, session = session }
             in
             ( next, Cmd.batch [ Cmd.map LoginMsg cmd, afterLogin, guard next ] )
+
+        RegisterMsg subMsg ->
+            let
+                ( register, cmd, event ) =
+                    Register.update subMsg model.register
+
+                ( session, afterRegister ) =
+                    case event of
+                        Register.Registered _ ->
+                            ( Checking, Api.getMe GotMe )
+
+                        Register.NoEvent ->
+                            ( model.session, Cmd.none )
+
+                next =
+                    { model | register = register, session = session }
+            in
+            ( next, Cmd.batch [ Cmd.map RegisterMsg cmd, afterRegister, guard next ] )
 
         SetLang lang ->
             ( { model | lang = lang }, setLanguage (I18n.toString lang) )
@@ -430,10 +465,18 @@ update msg model =
 
         SettingsMsg subMsg ->
             let
-                ( settings, cmd ) =
+                ( settings, cmd, event ) =
                     Settings.update subMsg model.settings
+
+                refresh =
+                    case event of
+                        Settings.SettingsSaved ->
+                            Cmd.batch [ Api.getMe GotMe, Api.getConfig GotConfig ]
+
+                        Settings.NoEvent ->
+                            Cmd.none
             in
-            ( { model | settings = settings }, Cmd.map SettingsMsg cmd )
+            ( { model | settings = settings }, Cmd.batch [ Cmd.map SettingsMsg cmd, refresh ] )
 
         Tick ->
             ( model, Api.getMe GotMe )
@@ -496,6 +539,9 @@ pageTitle t route =
         Login ->
             t.signIn
 
+        Register ->
+            t.createAccount
+
         Users ->
             t.users
 
@@ -533,7 +579,10 @@ viewShell t model =
             centered model.lang
                 [ case model.route of
                     Login ->
-                        Html.map LoginMsg (Login.view t model.companyName model.login)
+                        Html.map LoginMsg (Login.view t model.companyName model.registrationEnabled model.login)
+
+                    Register ->
+                        Html.map RegisterMsg (Register.view t model.companyName model.register)
 
                     _ ->
                         viewLoading t
@@ -542,6 +591,9 @@ viewShell t model =
         SignedIn me ->
             case model.route of
                 Login ->
+                    centered model.lang [ viewLoading t ]
+
+                Register ->
                     centered model.lang [ viewLoading t ]
 
                 _ ->

@@ -20,6 +20,7 @@ module Api exposing
     , login
     , loginTotp
     , logout
+    , register
     , removeRole
     , setRolePermissions
     , setUserPermissions
@@ -43,6 +44,8 @@ import Api.Types
         , PasswordError
         , PermissionInfo
         , PublicConfig
+        , RegisterRequest
+        , RegistrationError
         , RoleBody
         , RoleResponse
         , SettingInfo
@@ -63,6 +66,8 @@ import Api.Types
         , permissionInfoDecoder
         , permissionsBodyEncoder
         , publicConfigDecoder
+        , registerRequestEncoder
+        , registrationErrorDecoder
         , resultDecoder
         , roleBodyEncoder
         , roleResponseDecoder
@@ -101,6 +106,15 @@ login request toMsg =
         { url = "/api/v1/auth/login"
         , body = Http.jsonBody (loginRequestEncoder request)
         , expect = Http.expectJson toMsg (resultDecoder authErrorDecoder loginResponseDecoder)
+        }
+
+
+register : RegisterRequest -> (Result Http.Error (Result RegistrationError UserResponse) -> msg) -> Cmd msg
+register body toMsg =
+    Http.post
+        { url = "/api/v1/auth/register"
+        , body = Http.jsonBody (registerRequestEncoder body)
+        , expect = Http.expectJson toMsg (resultDecoder registrationErrorDecoder userResponseDecoder)
         }
 
 

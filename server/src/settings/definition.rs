@@ -26,6 +26,10 @@ pub(crate) async fn get(pool: &PgPool, name: &str) -> String {
     }
 }
 
+pub(crate) async fn get_bool(pool: &PgPool, name: &str) -> bool {
+    get(pool, name).await == "true"
+}
+
 pub(crate) async fn all(pool: &PgPool) -> Vec<SettingInfo> {
     let rows = sqlx::query!("select name, value from settings")
         .fetch_all(pool)

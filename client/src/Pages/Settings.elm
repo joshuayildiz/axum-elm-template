@@ -1,4 +1,4 @@
-module Pages.Settings exposing (Model, Msg, init, load, update, view)
+module Pages.Settings exposing (Event(..), Model, Msg, init, load, update, view)
 
 import Api
 import Api.Types exposing (SettingInfo, SettingKind(..))
@@ -37,6 +37,11 @@ type Msg
     | Done (Result Http.Error ())
 
 
+type Event
+    = NoEvent
+    | SettingsSaved
+
+
 init : Model
 init =
     { settings = Loading, submitting = False, notice = None }
@@ -47,40 +52,42 @@ load =
     Api.listSettings GotSettings
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, Event )
 update msg model =
     case msg of
         GotSettings (Ok settings) ->
-            ( { model | settings = Loaded settings }, Cmd.none )
+            ( { model | settings = Loaded settings }, Cmd.none, NoEvent )
 
         GotSettings (Err _) ->
-            ( { model | settings = Failed }, Cmd.none )
+            ( { model | settings = Failed }, Cmd.none, NoEvent )
 
         SetValue name value ->
             case model.settings of
                 Loaded settings ->
                     ( { model | settings = Loaded (setValue name value settings), notice = None }
                     , Cmd.none
+                    , NoEvent
                     )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model, Cmd.none, NoEvent )
 
         Submit ->
             case model.settings of
                 Loaded settings ->
                     ( { model | submitting = True, notice = None }
                     , Api.updateSettings { settings = List.map toUpdate settings } Done
+                    , NoEvent
                     )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model, Cmd.none, NoEvent )
 
         Done (Ok ()) ->
-            ( { model | submitting = False, notice = Saved }, Cmd.none )
+            ( { model | submitting = False, notice = Saved }, Cmd.none, SettingsSaved )
 
         Done (Err _) ->
-            ( { model | submitting = False, notice = SaveFailed }, Cmd.none )
+            ( { model | submitting = False, notice = SaveFailed }, Cmd.none, NoEvent )
 
 
 setValue : String -> String -> List SettingInfo -> List SettingInfo

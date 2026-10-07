@@ -50,5 +50,10 @@ async fn hello() -> Json<HelloResponse> {
 async fn public_config(State(state): State<AppState>) -> Json<PublicConfig> {
     Json(PublicConfig {
         company_name: crate::settings::get(&state.pool, crate::settings::COMPANY_NAME).await,
+        registration_enabled: crate::settings::get_bool(
+            &state.pool,
+            crate::settings::REGISTRATION_ENABLED,
+        )
+        .await,
     })
 }
