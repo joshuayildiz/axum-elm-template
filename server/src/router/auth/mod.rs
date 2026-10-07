@@ -1,7 +1,7 @@
 pub(crate) mod extractors;
 
 use super::AppState;
-use crate::api::{AuthError, LoginRequest, UserResponse};
+use crate::api::{AuthError, LoginRequest, MeResponse, UserResponse};
 use axum::Json;
 use axum::Router;
 use axum::extract::State;
@@ -75,8 +75,17 @@ async fn login(
     )
 }
 
-async fn me(user: CurrentUser) -> Json<Result<UserResponse, AuthError>> {
-    Json(Ok(user.into()))
+async fn me(
+    user: CurrentUser,
+    perms: crate::rbac::check::Permissions,
+) -> Json<Result<MeResponse, AuthError>> {
+    Json(Ok(MeResponse {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        is_admin: user.is_admin,
+        permissions: perms.names(),
+    }))
 }
 
 // Logout clears the cookie. It needs no auth, because a stale token holder must

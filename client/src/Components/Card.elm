@@ -9,4 +9,4 @@ the reference pages.
 -}
 view : List (Html msg) -> Html msg
 view children =
-    div [ class "w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-8 shadow-lg" ] children
+    div [ class "w-full max-w-sm rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm" ] children

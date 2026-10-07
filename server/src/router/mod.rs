@@ -1,4 +1,6 @@
 pub(crate) mod auth;
+pub(crate) mod rbac;
+pub(crate) mod users;
 
 use crate::api::HelloResponse;
 use axum::Json;
@@ -20,6 +22,8 @@ pub(crate) fn build(state: AppState) -> axum::Router {
     Router::new()
         .route("/api/v1/hello", get(hello))
         .merge(auth::routes(state.clone()))
+        .merge(rbac::routes(state.clone()))
+        .merge(users::routes(state.clone()))
         .fallback_service(client)
         .with_state(state)
 }

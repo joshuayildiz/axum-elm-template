@@ -1,14 +1,17 @@
 module Main exposing (main)
 
 import Api
-import Api.Types exposing (AuthError, UserResponse)
+import Api.Types exposing (AuthError, MeResponse)
 import Browser
 import Browser.Navigation as Nav
+import Components.Sidebar as Sidebar
 import Html exposing (Html, a, div, h1, p, text)
 import Html.Attributes exposing (class, href)
 import Http
 import Pages.Login as Login
+import Pages.Roles as Roles
 import Pages.Root as RootPage
+import Pages.Users as Users
 import Time
 import Url exposing (Url)
 import Url.Parser as Parser exposing (Parser)
@@ -17,33 +20,35 @@ import Url.Parser as Parser exposing (Parser)
 type Route
     = Root
     | Login
+    | Users
+    | Roles
     | NotFound
 
 
 type Session
     = Checking
     | Anonymous
-    | SignedIn UserResponse
-
-
-type alias LoginModel =
-    Login.Model
+    | SignedIn MeResponse
 
 
 type alias Model =
     { key : Nav.Key
     , route : Route
     , session : Session
-    , login : LoginModel
+    , login : Login.Model
+    , users : Users.Model
+    , roles : Roles.Model
     }
 
 
 type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
-    | GotMe (Result Http.Error (Result AuthError UserResponse))
+    | GotMe (Result Http.Error (Result AuthError MeResponse))
     | LoginMsg Login.Msg
     | RootMsg RootPage.Msg
+    | UsersMsg Users.Msg
+    | RolesMsg Roles.Msg
     | Tick
 
 
@@ -65,6 +70,8 @@ init _ url key =
       , route = toRoute url
       , session = Checking
       , login = Login.init
+      , users = Users.init
+      , roles = Roles.init
       }
     , Api.getMe GotMe
     )
@@ -75,6 +82,8 @@ routeParser =
     Parser.oneOf
         [ Parser.map Root Parser.top
         , Parser.map Login (Parser.s "login")
+        , Parser.map Users (Parser.s "users")
+        , Parser.map Roles (Parser.s "roles")
         ]
 
 
@@ -83,18 +92,103 @@ toRoute url =
     Maybe.withDefault NotFound (Parser.parse routeParser url)
 
 
+{-| The path a route lives at, used to mark the active sidebar tab.
+-}
+pathFor : Route -> String
+pathFor route =
+    case route of
+        Root ->
+            "/"
+
+        Users ->
+            "/users"
+
+        Roles ->
+            "/roles"
+
+        Login ->
+            "/login"
+
+        NotFound ->
+            ""
+
+
+{-| The permission a route needs. `Nothing` means any signed-in user may see it.
+-}
+routeRequirement : Route -> Maybe String
+routeRequirement route =
+    case route of
+        Users ->
+            Just "users.read"
+
+        Roles ->
+            Just "roles.read"
+
+        _ ->
+            Nothing
+
+
 {-| Send a visitor away from a page the current session is not allowed to see.
-An anonymous visitor on a protected page goes to the login page, and a signed-in
-visitor on the login page goes to the root. While the session is unknown, wait.
+An anonymous visitor on a protected page goes to the login page. A signed-in
+visitor on the login page goes to the root, and one who lacks the permission for
+a page goes to the root. While the session is unknown, wait.
 -}
 guard : Model -> Cmd Msg
 guard model =
-    case ( model.route, model.session ) of
-        ( Root, Anonymous ) ->
-            Nav.replaceUrl model.key "/login"
+    case model.session of
+        Checking ->
+            Cmd.none
 
-        ( Login, SignedIn _ ) ->
-            Nav.replaceUrl model.key "/"
+        Anonymous ->
+            case model.route of
+                Login ->
+                    Cmd.none
+
+                _ ->
+                    Nav.replaceUrl model.key "/login"
+
+        SignedIn me ->
+            case model.route of
+                Login ->
+                    Nav.replaceUrl model.key "/"
+
+                _ ->
+                    case routeRequirement model.route of
+                        Just permission ->
+                            if List.member permission me.permissions then
+                                Cmd.none
+
+                            else
+                                Nav.replaceUrl model.key "/"
+
+                        Nothing ->
+                            Cmd.none
+
+
+{-| The data a page needs when it opens. It runs only for a signed-in user who
+is allowed on the page, so a fetch never fires for a page the guard sends away.
+-}
+enter : Model -> Cmd Msg
+enter model =
+    case model.session of
+        SignedIn me ->
+            case ( model.route, routeRequirement model.route ) of
+                ( Users, Just permission ) ->
+                    if List.member permission me.permissions then
+                        Cmd.map UsersMsg Users.load
+
+                    else
+                        Cmd.none
+
+                ( Roles, Just permission ) ->
+                    if List.member permission me.permissions then
+                        Cmd.map RolesMsg Roles.load
+
+                    else
+                        Cmd.none
+
+                _ ->
+                    Cmd.none
 
         _ ->
             Cmd.none
@@ -114,14 +208,14 @@ update msg model =
                 next =
                     { model | route = toRoute url }
             in
-            ( next, guard next )
+            ( next, Cmd.batch [ guard next, enter next ] )
 
         GotMe result ->
             let
                 session =
                     case result of
-                        Ok (Ok user) ->
-                            SignedIn user
+                        Ok (Ok me) ->
+                            SignedIn me
 
                         _ ->
                             Anonymous
@@ -129,22 +223,27 @@ update msg model =
                 next =
                     { model | session = session }
             in
-            ( next, guard next )
+            ( next, Cmd.batch [ guard next, enter next ] )
 
         LoginMsg subMsg ->
             let
                 ( login, cmd, event ) =
                     Login.update subMsg model.login
 
-                next =
+                -- On a fresh login, load the full session (with permissions)
+                -- from the me endpoint before showing the app.
+                ( session, afterLogin ) =
                     case event of
-                        Login.LoggedIn user ->
-                            { model | login = login, session = SignedIn user }
+                        Login.LoggedIn _ ->
+                            ( Checking, Api.getMe GotMe )
 
                         Login.NoEvent ->
-                            { model | login = login }
+                            ( model.session, Cmd.none )
+
+                next =
+                    { model | login = login, session = session }
             in
-            ( next, Cmd.batch [ Cmd.map LoginMsg cmd, guard next ] )
+            ( next, Cmd.batch [ Cmd.map LoginMsg cmd, afterLogin, guard next ] )
 
         RootMsg subMsg ->
             let
@@ -160,6 +259,20 @@ update msg model =
                             model
             in
             ( next, Cmd.batch [ Cmd.map RootMsg cmd, guard next ] )
+
+        UsersMsg subMsg ->
+            let
+                ( users, cmd ) =
+                    Users.update subMsg model.users
+            in
+            ( { model | users = users }, Cmd.map UsersMsg cmd )
+
+        RolesMsg subMsg ->
+            let
+                ( roles, cmd ) =
+                    Roles.update subMsg model.roles
+            in
+            ( { model | roles = roles }, Cmd.map RolesMsg cmd )
 
         Tick ->
             ( model, Api.getMe GotMe )
@@ -187,6 +300,12 @@ pageTitle route =
         Login ->
             "Sign in"
 
+        Users ->
+            "Users"
+
+        Roles ->
+            "Roles"
+
         NotFound ->
             "Not found"
 
@@ -194,37 +313,95 @@ pageTitle route =
 view : Model -> Browser.Document Msg
 view model =
     { title = pageTitle model.route
-    , body =
-        [ div [ class "flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
-            [ viewPage model ]
-        ]
+    , body = [ viewShell model ]
     }
 
 
-{-| Pick the page for the route. The guard has already redirected any session
-that is not allowed here, so each page only needs to handle its own session.
+{-| Pick the outer frame. Signed-in pages sit beside the sidebar. Every other
+state is centered on its own.
 -}
-viewPage : Model -> Html Msg
-viewPage model =
+viewShell : Model -> Html Msg
+viewShell model =
+    case model.session of
+        Checking ->
+            centered [ viewLoading ]
+
+        Anonymous ->
+            centered
+                [ case model.route of
+                    Login ->
+                        Html.map LoginMsg (Login.view model.login)
+
+                    _ ->
+                        viewLoading
+                ]
+
+        SignedIn me ->
+            case model.route of
+                Login ->
+                    centered [ viewLoading ]
+
+                _ ->
+                    viewSignedIn model me
+
+
+centered : List (Html Msg) -> Html Msg
+centered children =
+    div
+        [ class "flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
+        children
+
+
+{-| The sidebar beside the page content. The sidebar shows only the tabs the
+permissions allow, so the guard and the sidebar agree on what a user can reach.
+-}
+viewSignedIn : Model -> MeResponse -> Html Msg
+viewSignedIn model me =
+    div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
+        [ Sidebar.view
+            { permissions = me.permissions
+            , activePath = pathFor model.route
+            , name = me.name
+            , email = me.email
+            }
+        , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
+            [ viewPage model me ]
+        ]
+
+
+viewPage : Model -> MeResponse -> Html Msg
+viewPage model me =
     case model.route of
-        NotFound ->
-            viewNotFound
-
-        Login ->
-            case model.session of
-                SignedIn _ ->
-                    viewLoading
-
-                _ ->
-                    Html.map LoginMsg (Login.view model.login)
-
         Root ->
-            case model.session of
-                SignedIn user ->
-                    Html.map RootMsg (RootPage.view user)
+            Html.map RootMsg (RootPage.view me)
 
-                _ ->
-                    viewLoading
+        Users ->
+            Html.map UsersMsg
+                (Users.view
+                    { canCreate = List.member "users.create" me.permissions
+                    , canDelete = List.member "users.delete" me.permissions
+                    , canReadRoles = List.member "users.roles.read" me.permissions
+                    , canAssignRoles = List.member "users.roles.assign" me.permissions
+                    , canReadPermissions = List.member "users.permissions.read" me.permissions
+                    , canGrant = List.member "users.permissions.grant" me.permissions
+                    }
+                    model.users
+                )
+
+        Roles ->
+            Html.map RolesMsg
+                (Roles.view
+                    { canCreate = List.member "roles.create" me.permissions
+                    , canUpdate = List.member "roles.update" me.permissions
+                    , canDelete = List.member "roles.delete" me.permissions
+                    , canReadPermissions = List.member "roles.permissions.read" me.permissions
+                    , canGrant = List.member "roles.permissions.grant" me.permissions
+                    }
+                    model.roles
+                )
+
+        _ ->
+            viewNotFound
 
 
 viewLoading : Html Msg

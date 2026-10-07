@@ -88,8 +88,8 @@ authErrorMessage error =
 view : Model -> Html Msg
 view model =
     Card.view
-        [ form [ class "flex flex-col gap-6", onSubmit SubmitLogin ]
-            [ h1 [ class "text-lg font-semibold tracking-tight text-zinc-900" ] [ text "Sign in" ]
+        [ form [ class "flex flex-col gap-5", onSubmit SubmitLogin ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text "Sign in" ]
             , Input.view
                 { label = "Email"
                 , type_ = "email"
@@ -122,7 +122,7 @@ viewError : Maybe String -> Html Msg
 viewError maybeError =
     case maybeError of
         Just message ->
-            p [ class "text-sm text-red-600" ] [ text message ]
+            p [ class "text-[13px] text-red-600" ] [ text message ]
 
         Nothing ->
             text ""

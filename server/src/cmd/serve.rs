@@ -1,11 +1,11 @@
+use crate::config::Config;
 use crate::router::{self, AppState};
+use sqlx::PgPool;
 use std::io;
 
-pub(crate) async fn cmd() -> io::Result<()> {
+pub(crate) async fn cmd(config: Config, pool: PgPool) -> io::Result<()> {
     use tokio::net::TcpListener;
 
-    let config = crate::config::Config::from_env();
-    let pool = crate::db::connect(&config.database_url).await;
     let state = AppState {
         pool,
         jwt_secret: config.jwt_secret.into(),

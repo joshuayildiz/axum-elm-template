@@ -1,14 +1,32 @@
 mod api;
 mod cmd;
 mod config;
-mod db;
 mod jwt;
+mod rbac;
 mod router;
 
+use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::io;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> io::Result<()> {
     dotenvy::dotenv().ok();
-    cmd::cmd().await
+    let config = config::Config::from_env();
+    let pool = connect(&config.database_url).await;
+    cmd::cmd(config, pool).await
+}
+
+async fn connect(database_url: &str) -> PgPool {
+    let pool = PgPoolOptions::new()
+        .connect(database_url)
+        .await
+        .expect("error connecting to database");
+
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("error applying migrations");
+
+    pool
 }

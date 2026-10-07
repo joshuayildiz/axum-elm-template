@@ -34,7 +34,7 @@ dev:
 	dekit up && dekit attach
 
 .PHONY: release
-release: client;
+release: client migrations;
 
 .PHONY: client ## builds client
 client: genelm
@@ -50,7 +50,7 @@ client: genelm
 .PHONY: genelm ## builds elm bindings
 genelm: server
 	mkdir -p client/src/Api
-	target/server genelm > client/src/Api/Types.elm
+	cd server && target/$(TARGET)/release/server genelm > ../client/src/Api/Types.elm
 
 .PHONY: server ## builds server
 server:
@@ -58,6 +58,11 @@ server:
 	mkdir -p target
 	cp server/target/$(TARGET)/release/server target/server
 
+
+.PHONY: migrations ## packs database migrations
+migrations:
+	mkdir -p target
+	rm -rf target/migrations && cp -r server/migrations target/migrations
 
 .PHONY: install ## installs client dev dependencies
 install:

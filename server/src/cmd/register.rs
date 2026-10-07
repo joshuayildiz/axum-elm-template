@@ -1,12 +1,10 @@
+use sqlx::PgPool;
 use std::io;
 
-pub(crate) async fn cmd() -> io::Result<()> {
+pub(crate) async fn cmd(pool: PgPool) -> io::Result<()> {
     use argon2::{Argon2, PasswordHasher};
     use dialoguer::theme::ColorfulTheme;
     use dialoguer::{Confirm, Input, Password};
-
-    let config = crate::config::Config::from_env();
-    let pool = crate::db::connect(&config.database_url).await;
 
     let theme = ColorfulTheme::default();
 

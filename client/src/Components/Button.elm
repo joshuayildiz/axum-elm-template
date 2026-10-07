@@ -9,7 +9,7 @@ for example `type_ "submit"`, `onClick`, or `disabled`.
 -}
 primary : List (Html.Attribute msg) -> List (Html msg) -> Html msg
 primary attrs children =
-    button (attrs ++ [ class (base ++ " bg-zinc-900 text-white hover:bg-zinc-700") ]) children
+    button (attrs ++ [ class (base ++ " bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 active:bg-zinc-900") ]) children
 
 
 {-| A quiet, outlined action, full width.
@@ -21,4 +21,4 @@ secondary attrs children =
 
 base : String
 base =
-    "w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+    "flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium tracking-tight transition-colors disabled:opacity-50"

@@ -72,6 +72,26 @@ userResponseEncoder struct =
         ]
 
 
+type alias MeResponse =
+    { id : String
+    , email : String
+    , name : Maybe String
+    , isAdmin : Bool
+    , permissions : List String
+    }
+
+
+meResponseEncoder : MeResponse -> Json.Encode.Value
+meResponseEncoder struct =
+    Json.Encode.object
+        [ ( "id", Json.Encode.string struct.id )
+        , ( "email", Json.Encode.string struct.email )
+        , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
+        , ( "is_admin", Json.Encode.bool struct.isAdmin )
+        , ( "permissions", Json.Encode.list Json.Encode.string struct.permissions )
+        ]
+
+
 type AuthError
     = InvalidCredentials
     | AccountDeactivated
@@ -89,6 +109,104 @@ authErrorEncoder enum =
 
         NotSignedIn ->
             Json.Encode.string "NotSignedIn"
+
+
+type alias CreateUser =
+    { email : String
+    , password : String
+    , name : Maybe String
+    , isAdmin : Bool
+    }
+
+
+createUserEncoder : CreateUser -> Json.Encode.Value
+createUserEncoder struct =
+    Json.Encode.object
+        [ ( "email", Json.Encode.string struct.email )
+        , ( "password", Json.Encode.string struct.password )
+        , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
+        , ( "is_admin", Json.Encode.bool struct.isAdmin )
+        ]
+
+
+type alias CreateRole =
+    { name : String
+    , description : Maybe String
+    }
+
+
+createRoleEncoder : CreateRole -> Json.Encode.Value
+createRoleEncoder struct =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string struct.name )
+        , ( "description", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.description )
+        ]
+
+
+type alias RoleResponse =
+    { id : String
+    , name : String
+    , description : Maybe String
+    }
+
+
+roleResponseEncoder : RoleResponse -> Json.Encode.Value
+roleResponseEncoder struct =
+    Json.Encode.object
+        [ ( "id", Json.Encode.string struct.id )
+        , ( "name", Json.Encode.string struct.name )
+        , ( "description", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.description )
+        ]
+
+
+type alias PermissionBody =
+    { permission : String
+    }
+
+
+permissionBodyEncoder : PermissionBody -> Json.Encode.Value
+permissionBodyEncoder struct =
+    Json.Encode.object
+        [ ( "permission", Json.Encode.string struct.permission )
+        ]
+
+
+type alias PermissionsBody =
+    { permissions : List String
+    }
+
+
+permissionsBodyEncoder : PermissionsBody -> Json.Encode.Value
+permissionsBodyEncoder struct =
+    Json.Encode.object
+        [ ( "permissions", Json.Encode.list Json.Encode.string struct.permissions )
+        ]
+
+
+type alias RoleBody =
+    { roleId : String
+    }
+
+
+roleBodyEncoder : RoleBody -> Json.Encode.Value
+roleBodyEncoder struct =
+    Json.Encode.object
+        [ ( "role_id", Json.Encode.string struct.roleId )
+        ]
+
+
+type alias PermissionInfo =
+    { name : String
+    , parent : Maybe String
+    }
+
+
+permissionInfoEncoder : PermissionInfo -> Json.Encode.Value
+permissionInfoEncoder struct =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string struct.name )
+        , ( "parent", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.parent )
+        ]
 
 
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
@@ -111,6 +229,16 @@ userResponseDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
+
+
+meResponseDecoder : Json.Decode.Decoder MeResponse
+meResponseDecoder =
+    Json.Decode.succeed MeResponse
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "permissions" (Json.Decode.list Json.Decode.string)))
 
 
 authErrorDecoder : Json.Decode.Decoder AuthError
@@ -147,3 +275,52 @@ authErrorDecoder =
                             Json.Decode.fail <| "Unexpected variant " ++ unexpected
                 )
         ]
+
+
+createUserDecoder : Json.Decode.Decoder CreateUser
+createUserDecoder =
+    Json.Decode.succeed CreateUser
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
+
+
+createRoleDecoder : Json.Decode.Decoder CreateRole
+createRoleDecoder =
+    Json.Decode.succeed CreateRole
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "description" (Json.Decode.nullable Json.Decode.string)))
+
+
+roleResponseDecoder : Json.Decode.Decoder RoleResponse
+roleResponseDecoder =
+    Json.Decode.succeed RoleResponse
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "description" (Json.Decode.nullable Json.Decode.string)))
+
+
+permissionBodyDecoder : Json.Decode.Decoder PermissionBody
+permissionBodyDecoder =
+    Json.Decode.succeed PermissionBody
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "permission" Json.Decode.string))
+
+
+permissionsBodyDecoder : Json.Decode.Decoder PermissionsBody
+permissionsBodyDecoder =
+    Json.Decode.succeed PermissionsBody
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "permissions" (Json.Decode.list Json.Decode.string)))
+
+
+roleBodyDecoder : Json.Decode.Decoder RoleBody
+roleBodyDecoder =
+    Json.Decode.succeed RoleBody
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "role_id" Json.Decode.string))
+
+
+permissionInfoDecoder : Json.Decode.Decoder PermissionInfo
+permissionInfoDecoder =
+    Json.Decode.succeed PermissionInfo
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent" (Json.Decode.nullable Json.Decode.string)))
