@@ -48,6 +48,7 @@ import Api.Types
         , userResponseDecoder
         )
 import Http
+import I18n exposing (T)
 import Json.Decode as Decode
 
 
@@ -246,20 +247,20 @@ logout toMsg =
         }
 
 
-errorToString : Http.Error -> String
-errorToString err =
+errorToString : T -> Http.Error -> String
+errorToString t err =
     case err of
         Http.BadUrl url ->
-            "Bad URL: " ++ url
+            t.errBadUrlPrefix ++ url
 
         Http.Timeout ->
-            "The request timed out."
+            t.errTimeout
 
         Http.NetworkError ->
-            "A network error occurred."
+            t.errNetwork
 
         Http.BadStatus code ->
-            "The server returned status " ++ String.fromInt code ++ "."
+            t.errBadStatusPrefix ++ String.fromInt code ++ "."
 
         Http.BadBody body ->
-            "The response body did not match: " ++ body
+            t.errBadBodyPrefix ++ body

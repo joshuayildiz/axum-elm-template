@@ -8,6 +8,7 @@ import Html exposing (Html, button, datalist, div, form, h1, h2, input, label, l
 import Html.Attributes exposing (checked, class, disabled, id, list, placeholder, property, style, type_, value)
 import Html.Events exposing (on, onCheck, onClick, onInput, onSubmit, targetValue)
 import Http
+import I18n exposing (T)
 import Icons
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -32,7 +33,8 @@ type alias Selection =
     }
 
 
-{-| The create-user form. It is hidden until the user opens it.
+{-| The create-user form. It is hidden until the user opens it. `error` holds the
+failed request, and the view turns it into a localized message.
 -}
 type alias Form =
     { open : Bool
@@ -41,7 +43,7 @@ type alias Form =
     , password : String
     , isAdmin : Bool
     , submitting : Bool
-    , error : Maybe String
+    , error : Maybe Http.Error
     }
 
 
@@ -311,7 +313,7 @@ update msg model =
             ( { model | form = emptyForm }, Api.listUsers GotUsers )
 
         Created (Err error) ->
-            ( { model | form = { form | submitting = False, error = Just (createError error) } }
+            ( { model | form = { form | submitting = False, error = Just error } }
             , Cmd.none
             )
 
@@ -341,20 +343,20 @@ optional value_ =
         Just (String.trim value_)
 
 
-createError : Http.Error -> String
-createError error =
+createError : T -> Http.Error -> String
+createError t error =
     case error of
         Http.BadStatus 409 ->
-            "That email is already in use."
+            t.errEmailInUse
 
         Http.BadStatus 422 ->
-            "Enter a valid email and a password of at least 8 characters."
+            t.errUserInvalid
 
         Http.BadStatus 403 ->
-            "You do not have permission to create a user."
+            t.errNoPermissionCreateUser
 
         _ ->
-            Api.errorToString error
+            Api.errorToString t error
 
 
 fromResult : Result Http.Error a -> Remote a
@@ -403,59 +405,59 @@ type alias Caps =
     }
 
 
-view : Caps -> Model -> Html Msg
-view caps model =
+view : T -> Caps -> Model -> Html Msg
+view t caps model =
     div [ class "flex w-full flex-1 flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-3" ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text "Users" ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.users ]
             , div [ class "flex items-center gap-2" ]
-                [ viewSearch model.search
-                , viewCreateButton caps.canCreate model.form.open
+                [ viewSearch t model.search
+                , viewCreateButton t caps.canCreate model.form.open
                 ]
             ]
         , if model.form.open then
-            viewForm model.form
+            viewForm t model.form
 
           else
             text ""
         , case model.users of
             Loading ->
-                hint "Loading users..."
+                hint t.loadingUsers
 
             Failed ->
-                hint "Could not load users."
+                hint t.couldNotLoadUsers
 
             Loaded users ->
-                viewContent caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected (List.filter (matches model.search) users)
+                viewContent t caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected (List.filter (matches model.search) users)
         ]
 
 
-viewCreateButton : Bool -> Bool -> Html Msg
-viewCreateButton canCreate open =
+viewCreateButton : T -> Bool -> Bool -> Html Msg
+viewCreateButton t canCreate open =
     if canCreate then
         button
             [ onClick ToggleForm
             , class "flex items-center gap-1.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-zinc-800"
             ]
             (if open then
-                [ text "Cancel" ]
+                [ text t.cancel ]
 
              else
-                [ Icons.plus, text "Create user" ]
+                [ Icons.plus, text t.createUser ]
             )
 
     else
         text ""
 
 
-viewSearch : String -> Html Msg
-viewSearch query =
+viewSearch : T -> String -> Html Msg
+viewSearch t query =
     div [ class "relative" ]
         [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" ]
             [ Icons.search ]
         , input
             [ type_ "search"
-            , placeholder "Search users"
+            , placeholder t.searchUsers
             , value query
             , onInput SetSearch
             , class "w-64 rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
@@ -464,21 +466,21 @@ viewSearch query =
         ]
 
 
-viewContent : Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> List UserResponse -> Html Msg
-viewContent caps permissions allRoles roleInput confirmingDelete selected users =
+viewContent : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> List UserResponse -> Html Msg
+viewContent t caps permissions allRoles roleInput confirmingDelete selected users =
     div [ class "flex flex-1 items-start gap-4" ]
-        [ div [ class "min-w-0 flex-1" ] [ viewTable selected users ]
+        [ div [ class "min-w-0 flex-1" ] [ viewTable t selected users ]
         , case selected of
             Just selection ->
-                viewDetail caps permissions allRoles roleInput confirmingDelete selection
+                viewDetail t caps permissions allRoles roleInput confirmingDelete selection
 
             Nothing ->
                 text ""
         ]
 
 
-viewTable : Maybe Selection -> List UserResponse -> Html Msg
-viewTable selected users =
+viewTable : T -> Maybe Selection -> List UserResponse -> Html Msg
+viewTable t selected users =
     let
         selectedId =
             Maybe.map (\s -> s.user.id) selected
@@ -487,21 +489,21 @@ viewTable selected users =
         [ table [ class "w-full border-collapse text-left text-[13px]" ]
             [ thead []
                 [ tr [ class "border-b border-zinc-200 bg-zinc-50/60" ]
-                    [ th [ class headClass ] [ text "Email" ]
-                    , th [ class headClass ] [ text "Name" ]
-                    , th [ class (headClass ++ " text-right") ] [ text "Admin" ]
+                    [ th [ class headClass ] [ text t.email ]
+                    , th [ class headClass ] [ text t.name ]
+                    , th [ class (headClass ++ " text-right") ] [ text t.admin ]
                     ]
                 ]
             , tbody []
                 (if List.isEmpty users then
                     [ tr []
                         [ td [ class "px-3 py-6 text-center text-[13px] text-zinc-400" ]
-                            [ text "No users match." ]
+                            [ text t.noUsersMatch ]
                         ]
                     ]
 
                  else
-                    List.map (viewTableRow selectedId) users
+                    List.map (viewTableRow t selectedId) users
                 )
             ]
         ]
@@ -512,8 +514,8 @@ headClass =
     "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400"
 
 
-viewTableRow : Maybe String -> UserResponse -> Html Msg
-viewTableRow selectedId user =
+viewTableRow : T -> Maybe String -> UserResponse -> Html Msg
+viewTableRow t selectedId user =
     tr
         [ onClick (Select user)
         , class
@@ -531,7 +533,7 @@ viewTableRow selectedId user =
         , td [ class "px-3 py-2 text-right" ]
             [ if user.isAdmin then
                 span [ class "rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500" ]
-                    [ text "Admin" ]
+                    [ text t.admin ]
 
               else
                 span [ class "text-zinc-300" ] [ text "—" ]
@@ -539,26 +541,26 @@ viewTableRow selectedId user =
         ]
 
 
-viewDetail : Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Selection -> Html Msg
-viewDetail caps permissions allRoles roleInput confirmingDelete selection =
+viewDetail : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Selection -> Html Msg
+viewDetail t caps permissions allRoles roleInput confirmingDelete selection =
     div []
         [ div [ class "w-96 shrink-0 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewUser selection.user
                     :: (if caps.canReadRoles then
-                            [ section "Roles" (viewRoles caps allRoles roleInput selection.roles) ]
+                            [ section t.roles (viewRoles t caps allRoles roleInput selection.roles) ]
 
                         else
                             []
                        )
                     ++ (if caps.canReadPermissions then
-                            [ section "Permissions" (viewTree caps.canGrant permissions selection) ]
+                            [ section t.permissions (viewTree t caps.canGrant permissions selection) ]
 
                         else
                             []
                        )
                     ++ (if caps.canDelete then
-                            [ viewDeleteButton ]
+                            [ viewDeleteButton t ]
 
                         else
                             []
@@ -566,40 +568,40 @@ viewDetail caps permissions allRoles roleInput confirmingDelete selection =
                 )
             ]
         , if confirmingDelete then
-            viewDeleteModal selection.user.email
+            viewDeleteModal t selection.user.email
 
           else
             text ""
         ]
 
 
-viewDeleteButton : Html Msg
-viewDeleteButton =
+viewDeleteButton : T -> Html Msg
+viewDeleteButton t =
     button
         [ onClick RequestDelete
         , class "self-start rounded-lg border border-red-200 px-2.5 py-1.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
         ]
-        [ text "Delete user" ]
+        [ text t.deleteUser ]
 
 
-viewDeleteModal : String -> Html Msg
-viewDeleteModal email =
+viewDeleteModal : T -> String -> Html Msg
+viewDeleteModal t email =
     div [ class "fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" ]
         [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg" ]
-            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text "Delete user" ]
+            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text t.deleteUser ]
             , p [ class "text-[13px] text-zinc-500" ]
-                [ text ("Delete \"" ++ email ++ "\"? They will lose access immediately.") ]
+                [ text (t.deleteUserConfirmPrefix ++ email ++ t.deleteUserConfirmSuffix) ]
             , div [ class "flex justify-end gap-2" ]
                 [ button
                     [ onClick CancelDelete
                     , class "rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
                     ]
-                    [ text "Cancel" ]
+                    [ text t.cancel ]
                 , button
                     [ onClick ConfirmDelete
                     , class "rounded-lg bg-red-600 px-2.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-red-700"
                     ]
-                    [ text "Delete" ]
+                    [ text t.delete ]
                 ]
             ]
         ]
@@ -608,25 +610,25 @@ viewDeleteModal email =
 {-| The assigned roles as removable pills, with an autocomplete box to add more.
 Without `canAssignRoles` the pills are plain and the box is hidden.
 -}
-viewRoles : Caps -> Remote (List RoleResponse) -> String -> Remote (List RoleResponse) -> Html Msg
-viewRoles caps allRoles roleInput assigned =
+viewRoles : T -> Caps -> Remote (List RoleResponse) -> String -> Remote (List RoleResponse) -> Html Msg
+viewRoles t caps allRoles roleInput assigned =
     case assigned of
         Loading ->
-            hint "Loading..."
+            hint t.loading
 
         Failed ->
-            hint "Could not load."
+            hint t.couldNotLoad
 
         Loaded roles ->
             div [ class "flex flex-col gap-2" ]
                 [ if List.isEmpty roles then
-                    hint "No roles."
+                    hint t.noRoles
 
                   else
                     div [ class "flex flex-wrap gap-1" ]
                         (List.map (viewRolePill caps.canAssignRoles) roles)
                 , if caps.canAssignRoles then
-                    viewRoleInput allRoles roleInput roles
+                    viewRoleInput t allRoles roleInput roles
 
                   else
                     text ""
@@ -651,8 +653,8 @@ viewRolePill canRemove role =
         )
 
 
-viewRoleInput : Remote (List RoleResponse) -> String -> List RoleResponse -> Html Msg
-viewRoleInput allRoles roleInput assigned =
+viewRoleInput : T -> Remote (List RoleResponse) -> String -> List RoleResponse -> Html Msg
+viewRoleInput t allRoles roleInput assigned =
     let
         assignedNames =
             List.map .name assigned
@@ -668,7 +670,7 @@ viewRoleInput allRoles roleInput assigned =
     div []
         [ input
             [ type_ "text"
-            , placeholder "Add role"
+            , placeholder t.addRole
             , value roleInput
             , onInput SetRoleInput
             , on "change" (Decode.map AddRole targetValue)
@@ -700,24 +702,24 @@ type Node
     = Node { name : String, segment : String, children : List Node }
 
 
-viewTree : Bool -> Remote (List PermissionInfo) -> Selection -> Html Msg
-viewTree canGrant permissions selection =
+viewTree : T -> Bool -> Remote (List PermissionInfo) -> Selection -> Html Msg
+viewTree t canGrant permissions selection =
     case ( permissions, selection.direct, selection.inherited ) of
         ( Loaded catalog, Loaded direct, Loaded inherited ) ->
             div [ class "flex flex-col" ]
-                (List.concatMap (viewNode canGrant selection.user.isAdmin catalog direct inherited 0) (buildForest catalog))
+                (List.concatMap (viewNode t canGrant selection.user.isAdmin catalog direct inherited 0) (buildForest catalog))
 
         ( Failed, _, _ ) ->
-            hint "Could not load permissions."
+            hint t.couldNotLoadPermissions
 
         ( _, Failed, _ ) ->
-            hint "Could not load."
+            hint t.couldNotLoad
 
         ( _, _, Failed ) ->
-            hint "Could not load."
+            hint t.couldNotLoad
 
         _ ->
-            hint "Loading..."
+            hint t.loading
 
 
 {-| Turn the flat catalog into a forest, following the parent links.
@@ -741,17 +743,17 @@ toNode catalog permission =
         }
 
 
-viewNode : Bool -> Bool -> List PermissionInfo -> List String -> List String -> Int -> Node -> List (Html Msg)
-viewNode canGrant admin catalog direct inherited depth (Node node) =
-    viewRow canGrant admin catalog direct inherited depth node
-        :: List.concatMap (viewNode canGrant admin catalog direct inherited (depth + 1)) node.children
+viewNode : T -> Bool -> Bool -> List PermissionInfo -> List String -> List String -> Int -> Node -> List (Html Msg)
+viewNode t canGrant admin catalog direct inherited depth (Node node) =
+    viewRow t canGrant admin catalog direct inherited depth node
+        :: List.concatMap (viewNode t canGrant admin catalog direct inherited (depth + 1)) node.children
 
 
 {-| One row. The checkbox reflects the leaves under the node: ticked when all are
 granted, a dash when some are, empty when none. A leaf granted only through a role
 is shown locked, because you change that on the role.
 -}
-viewRow canGrant admin catalog direct inherited depth node =
+viewRow t canGrant admin catalog direct inherited depth node =
     let
         leaves =
             controlledLeaves catalog node.name
@@ -808,7 +810,7 @@ viewRow canGrant admin catalog direct inherited depth node =
             ]
             [ text node.segment ]
         , if fromRoleOnly then
-            span [ class "text-[10px] uppercase tracking-wide text-zinc-300" ] [ text "role" ]
+            span [ class "text-[10px] uppercase tracking-wide text-zinc-300" ] [ text t.roleTag ]
 
           else
             text ""
@@ -852,30 +854,30 @@ section title body =
         ]
 
 
-viewForm : Form -> Html Msg
-viewForm form_ =
+viewForm : T -> Form -> Html Msg
+viewForm t form_ =
     form
         [ onSubmit Submit
         , class "flex flex-col gap-3.5 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm"
         ]
         [ Input.view
-            { label = "Email"
+            { label = t.email
             , type_ = "email"
-            , placeholder = "you@example.com"
+            , placeholder = t.loginEmailPlaceholder
             , value = form_.email
             , onInput = SetEmail
             }
         , Input.view
-            { label = "Name"
+            { label = t.name
             , type_ = "text"
-            , placeholder = "Optional"
+            , placeholder = t.optionalField
             , value = form_.name
             , onInput = SetName
             }
         , Input.view
-            { label = "Password"
+            { label = t.password
             , type_ = "password"
-            , placeholder = "At least 8 characters"
+            , placeholder = t.atLeast8
             , value = form_.password
             , onInput = SetPassword
             }
@@ -887,26 +889,26 @@ viewForm form_ =
                 , class "h-4 w-4 accent-zinc-900"
                 ]
                 []
-            , text "Admin"
+            , text t.admin
             ]
-        , viewError form_.error
+        , viewError t form_.error
         , Button.primary [ type_ "submit", disabled form_.submitting ]
             [ text
                 (if form_.submitting then
-                    "Creating..."
+                    t.creating
 
                  else
-                    "Create user"
+                    t.createUser
                 )
             ]
         ]
 
 
-viewError : Maybe String -> Html Msg
-viewError maybeError =
+viewError : T -> Maybe Http.Error -> Html Msg
+viewError t maybeError =
     case maybeError of
-        Just message ->
-            p [ class "text-[13px] text-red-600" ] [ text message ]
+        Just error ->
+            p [ class "text-[13px] text-red-600" ] [ text (createError t error) ]
 
         Nothing ->
             text ""

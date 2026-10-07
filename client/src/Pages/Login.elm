@@ -9,12 +9,21 @@ import Html exposing (Html, form, h1, p, text)
 import Html.Attributes exposing (class, disabled, type_)
 import Html.Events exposing (onSubmit)
 import Http
+import I18n exposing (T)
+
+
+{-| Why a sign-in failed. The view turns it into a localized message, so the
+model holds the cause, not the words.
+-}
+type Error
+    = AuthFailed AuthError
+    | HttpFailed Http.Error
 
 
 type alias Model =
     { email : String
     , password : String
-    , error : Maybe String
+    , error : Maybe Error
     , submitting : Bool
     }
 
@@ -60,69 +69,79 @@ update msg model =
             )
 
         GotLogin (Ok (Err authError)) ->
-            ( { model | submitting = False, error = Just (authErrorMessage authError) }
+            ( { model | submitting = False, error = Just (AuthFailed authError) }
             , Cmd.none
             , NoEvent
             )
 
         GotLogin (Err httpError) ->
-            ( { model | submitting = False, error = Just (Api.errorToString httpError) }
+            ( { model | submitting = False, error = Just (HttpFailed httpError) }
             , Cmd.none
             , NoEvent
             )
 
 
-authErrorMessage : AuthError -> String
-authErrorMessage error =
+errorMessage : T -> Error -> String
+errorMessage t error =
+    case error of
+        AuthFailed authError ->
+            authErrorMessage t authError
+
+        HttpFailed httpError ->
+            Api.errorToString t httpError
+
+
+authErrorMessage : T -> AuthError -> String
+authErrorMessage t error =
     case error of
         InvalidCredentials ->
-            "Incorrect email or password."
+            t.authInvalid
 
         AccountDeactivated ->
-            "This account is deactivated."
+            t.authDeactivated
 
         NotSignedIn ->
-            "You are not signed in."
+            t.authNotSignedIn
 
 
-view : Model -> Html Msg
-view model =
+view : T -> Model -> Html Msg
+view t model =
     Card.view
         [ form [ class "flex flex-col gap-5", onSubmit SubmitLogin ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text "Sign in" ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.signIn ]
             , Input.view
-                { label = "Email"
+                { label = t.email
                 , type_ = "email"
-                , placeholder = "you@example.com"
+                , placeholder = t.loginEmailPlaceholder
                 , value = model.email
                 , onInput = EmailChanged
                 }
             , Input.view
-                { label = "Password"
+                { label = t.password
                 , type_ = "password"
-                , placeholder = "Your password"
+                , placeholder = t.loginPasswordPlaceholder
                 , value = model.password
                 , onInput = PasswordChanged
                 }
-            , viewError model.error
+            , viewError t model.error
             , Button.primary [ type_ "submit", disabled model.submitting ]
                 [ text
                     (if model.submitting then
-                        "Signing in..."
+                        t.signingIn
 
                      else
-                        "Sign in"
+                        t.signIn
                     )
                 ]
             ]
         ]
 
 
-viewError : Maybe String -> Html Msg
-viewError maybeError =
+viewError : T -> Maybe Error -> Html Msg
+viewError t maybeError =
     case maybeError of
-        Just message ->
-            p [ class "text-[13px] text-red-600" ] [ text message ]
+        Just error ->
+            p [ class "text-[13px] text-red-600" ] [ text (errorMessage t error) ]
 
         Nothing ->
             text ""

@@ -1,8 +1,9 @@
-module Components.Sidebar exposing (view)
+module Components.Sidebar exposing (Config, view)
 
 import Html exposing (Html, a, aside, button, div, nav, span, text)
 import Html.Attributes exposing (class, href)
 import Html.Events exposing (onClick)
+import I18n exposing (T)
 import Icons
 
 
@@ -17,11 +18,11 @@ type alias Tab msg =
     }
 
 
-tabs : List (Tab msg)
-tabs =
-    [ { label = "Home", path = "/", permission = Nothing, icon = Icons.home }
-    , { label = "Users", path = "/users", permission = Just "users.read", icon = Icons.users }
-    , { label = "Roles", path = "/roles", permission = Just "roles.read", icon = Icons.roles }
+tabs : T -> List (Tab msg)
+tabs t =
+    [ { label = t.home, path = "/", permission = Nothing, icon = Icons.home }
+    , { label = t.users, path = "/users", permission = Just "users.read", icon = Icons.users }
+    , { label = t.roles, path = "/roles", permission = Just "roles.read", icon = Icons.roles }
     ]
 
 
@@ -29,7 +30,8 @@ tabs =
 marks the tab for the current path as active.
 -}
 type alias Config msg =
-    { permissions : List String
+    { t : T
+    , permissions : List String
     , activePath : String
     , name : Maybe String
     , email : String
@@ -42,9 +44,9 @@ type alias Config msg =
 view : Config msg -> Html msg
 view config =
     aside [ class "flex w-52 shrink-0 flex-col gap-5 border-r border-zinc-200/70 bg-white/60 p-3" ]
-        [ brand
+        [ brand config.t
         , nav [ class "flex flex-1 flex-col gap-0.5 overflow-y-auto" ]
-            (caption "Menu" :: List.filterMap (viewTab config.permissions config.activePath) tabs)
+            (caption config.t.menu :: List.filterMap (viewTab config.permissions config.activePath) (tabs config.t))
         , viewUser config
         ]
 
@@ -57,7 +59,7 @@ viewUser config =
             , class "flex w-full flex-col gap-0.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-zinc-100"
             ]
             [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ]
-                [ text "Signed in as" ]
+                [ text config.t.signedInAs ]
             , span [ class "truncate text-[13px] font-medium text-zinc-800" ]
                 [ text (Maybe.withDefault config.email config.name) ]
             , case config.name of
@@ -68,15 +70,15 @@ viewUser config =
                     text ""
             ]
         , if config.menuOpen then
-            viewMenu config.onToggleMenu config.onLogout
+            viewMenu config.t.logOut config.onToggleMenu config.onLogout
 
           else
             text ""
         ]
 
 
-viewMenu : msg -> msg -> Html msg
-viewMenu onToggleMenu onLogout =
+viewMenu : String -> msg -> msg -> Html msg
+viewMenu logOutLabel onToggleMenu onLogout =
     div []
         [ div [ class "fixed inset-0 z-40", onClick onToggleMenu ] []
         , div [ class "absolute bottom-full left-0 z-50 mb-1 w-full rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" ]
@@ -84,17 +86,17 @@ viewMenu onToggleMenu onLogout =
                 [ onClick onLogout
                 , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
                 ]
-                [ Icons.logOut, text "Log out" ]
+                [ Icons.logOut, text logOutLabel ]
             ]
         ]
 
 
-brand : Html msg
-brand =
+brand : T -> Html msg
+brand t =
     div [ class "flex items-center gap-2 px-2 pt-1" ]
         [ div [ class "flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-bold text-white" ]
             [ text "A" ]
-        , span [ class "text-sm font-semibold tracking-tight text-zinc-900" ] [ text "Console" ]
+        , span [ class "text-sm font-semibold tracking-tight text-zinc-900" ] [ text t.console ]
         ]
 
 

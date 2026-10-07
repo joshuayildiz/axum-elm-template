@@ -1,13 +1,15 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Api
 import Api.Types exposing (AuthError, MeResponse)
 import Browser
 import Browser.Navigation as Nav
+import Components.LangSwitcher as LangSwitcher
 import Components.Sidebar as Sidebar
 import Html exposing (Html, a, div, h1, p, text)
 import Html.Attributes exposing (class, href)
 import Http
+import I18n exposing (Lang, T)
 import Pages.Login as Login
 import Pages.Roles as Roles
 import Pages.Root as RootPage
@@ -15,6 +17,19 @@ import Pages.Users as Users
 import Time
 import Url exposing (Url)
 import Url.Parser as Parser exposing (Parser)
+
+
+{-| Persist the chosen language in the browser. `index.html` subscribes and
+writes it to `localStorage`.
+-}
+port setLanguage : String -> Cmd msg
+
+
+{-| The values `index.html` passes in at startup. `language` is the stored choice
+or the browser language.
+-}
+type alias Flags =
+    { language : String }
 
 
 type Route
@@ -35,6 +50,7 @@ type alias Model =
     { key : Nav.Key
     , route : Route
     , session : Session
+    , lang : Lang
     , login : Login.Model
     , users : Users.Model
     , roles : Roles.Model
@@ -49,13 +65,14 @@ type Msg
     | LoginMsg Login.Msg
     | UsersMsg Users.Msg
     | RolesMsg Roles.Msg
+    | SetLang Lang
     | ToggleUserMenu
     | Logout
     | LoggedOut (Result Http.Error ())
     | Tick
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.application
         { init = init
@@ -67,11 +84,12 @@ main =
         }
 
 
-init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url key =
+init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
     ( { key = key
       , route = toRoute url
       , session = Checking
+      , lang = I18n.fromString flags.language
       , login = Login.init
       , users = Users.init
       , roles = Roles.init
@@ -249,6 +267,9 @@ update msg model =
             in
             ( next, Cmd.batch [ Cmd.map LoginMsg cmd, afterLogin, guard next ] )
 
+        SetLang lang ->
+            ( { model | lang = lang }, setLanguage (I18n.toString lang) )
+
         ToggleUserMenu ->
             ( { model | userMenuOpen = not model.userMenuOpen }, Cmd.none )
 
@@ -295,75 +316,85 @@ subscriptions model =
             Sub.none
 
 
-pageTitle : Route -> String
-pageTitle route =
+pageTitle : T -> Route -> String
+pageTitle t route =
     case route of
         Root ->
-            "Home"
+            t.home
 
         Login ->
-            "Sign in"
+            t.signIn
 
         Users ->
-            "Users"
+            t.users
 
         Roles ->
-            "Roles"
+            t.roles
 
         NotFound ->
-            "Not found"
+            t.notFound
 
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = pageTitle model.route
-    , body = [ viewShell model ]
+    let
+        t =
+            I18n.translations model.lang
+    in
+    { title = pageTitle t model.route
+    , body = [ viewShell t model ]
     }
 
 
 {-| Pick the outer frame. Signed-in pages sit beside the sidebar. Every other
 state is centered on its own.
 -}
-viewShell : Model -> Html Msg
-viewShell model =
+viewShell : T -> Model -> Html Msg
+viewShell t model =
     case model.session of
         Checking ->
-            centered [ viewLoading ]
+            centered model.lang [ viewLoading t ]
 
         Anonymous ->
-            centered
+            centered model.lang
                 [ case model.route of
                     Login ->
-                        Html.map LoginMsg (Login.view model.login)
+                        Html.map LoginMsg (Login.view t model.login)
 
                     _ ->
-                        viewLoading
+                        viewLoading t
                 ]
 
         SignedIn me ->
             case model.route of
                 Login ->
-                    centered [ viewLoading ]
+                    centered model.lang [ viewLoading t ]
 
                 _ ->
-                    viewSignedIn model me
+                    viewSignedIn t model me
 
 
-centered : List (Html Msg) -> Html Msg
-centered children =
+langSwitcher : Lang -> Html Msg
+langSwitcher lang =
+    LangSwitcher.view lang SetLang
+
+
+centered : Lang -> List (Html Msg) -> Html Msg
+centered lang children =
     div
-        [ class "flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
-        children
+        [ class "relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
+        (div [ class "absolute right-4 top-4" ] [ langSwitcher lang ] :: children)
 
 
 {-| The sidebar beside the page content. The sidebar shows only the tabs the
 permissions allow, so the guard and the sidebar agree on what a user can reach.
 -}
-viewSignedIn : Model -> MeResponse -> Html Msg
-viewSignedIn model me =
+viewSignedIn : T -> Model -> MeResponse -> Html Msg
+viewSignedIn t model me =
     div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
         [ Sidebar.view
-            { permissions = me.permissions
+            { t = t
+            , permissions = me.permissions
             , activePath = pathFor model.route
             , name = me.name
             , email = me.email
@@ -372,19 +403,21 @@ viewSignedIn model me =
             , onLogout = Logout
             }
         , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
-            [ viewPage model me ]
+            [ div [ class "flex w-full justify-end" ] [ langSwitcher model.lang ]
+            , viewPage t model me
+            ]
         ]
 
 
-viewPage : Model -> MeResponse -> Html Msg
-viewPage model me =
+viewPage : T -> Model -> MeResponse -> Html Msg
+viewPage t model me =
     case model.route of
         Root ->
-            RootPage.view me
+            RootPage.view t
 
         Users ->
             Html.map UsersMsg
-                (Users.view
+                (Users.view t
                     { canCreate = List.member "users.create" me.permissions
                     , canDelete = List.member "users.delete" me.permissions
                     , canReadRoles = List.member "users.roles.read" me.permissions
@@ -397,7 +430,7 @@ viewPage model me =
 
         Roles ->
             Html.map RolesMsg
-                (Roles.view
+                (Roles.view t
                     { canCreate = List.member "roles.create" me.permissions
                     , canUpdate = List.member "roles.update" me.permissions
                     , canDelete = List.member "roles.delete" me.permissions
@@ -408,21 +441,21 @@ viewPage model me =
                 )
 
         _ ->
-            viewNotFound
+            viewNotFound t
 
 
-viewLoading : Html Msg
-viewLoading =
-    p [ class "text-sm text-zinc-500" ] [ text "Loading..." ]
+viewLoading : T -> Html Msg
+viewLoading t =
+    p [ class "text-sm text-zinc-500" ] [ text t.loading ]
 
 
-viewNotFound : Html Msg
-viewNotFound =
+viewNotFound : T -> Html Msg
+viewNotFound t =
     div [ class "flex flex-col items-center gap-3" ]
-        [ h1 [ class "text-lg font-semibold tracking-tight text-zinc-900" ] [ text "Not found" ]
+        [ h1 [ class "text-lg font-semibold tracking-tight text-zinc-900" ] [ text t.notFound ]
         , a
             [ href "/"
             , class "text-sm font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
             ]
-            [ text "Go home" ]
+            [ text t.goHome ]
         ]

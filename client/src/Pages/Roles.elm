@@ -8,6 +8,7 @@ import Html exposing (Html, button, div, form, h1, h2, input, label, p, span, ta
 import Html.Attributes exposing (checked, class, disabled, placeholder, property, rows, type_, value)
 import Html.Events exposing (on, onClick, onInput, onSubmit)
 import Http
+import I18n exposing (T)
 import Icons
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -25,12 +26,15 @@ type alias Selection =
     }
 
 
+{-| The create-role form. `error` holds the failed request, and the view turns it
+into a localized message.
+-}
 type alias Form =
     { open : Bool
     , name : String
     , description : String
     , submitting : Bool
-    , error : Maybe String
+    , error : Maybe Http.Error
     }
 
 
@@ -283,7 +287,7 @@ update msg model =
             ( { model | form = emptyForm }, Api.listRoles GotRoles )
 
         Created (Err error) ->
-            ( { model | form = { form | submitting = False, error = Just (createError error) } }
+            ( { model | form = { form | submitting = False, error = Just error } }
             , Cmd.none
             )
 
@@ -306,20 +310,20 @@ resetDrafts model =
             model
 
 
-createError : Http.Error -> String
-createError error =
+createError : T -> Http.Error -> String
+createError t error =
     case error of
         Http.BadStatus 409 ->
-            "That role name is already in use."
+            t.errRoleNameInUse
 
         Http.BadStatus 422 ->
-            "Enter a role name."
+            t.errRoleNameRequired
 
         Http.BadStatus 403 ->
-            "You do not have permission to create a role."
+            t.errNoPermissionCreateRole
 
         _ ->
-            Api.errorToString error
+            Api.errorToString t error
 
 
 fromResult : Result Http.Error a -> Remote a
@@ -341,59 +345,59 @@ matches query role =
 -- VIEW
 
 
-view : Caps -> Model -> Html Msg
-view caps model =
+view : T -> Caps -> Model -> Html Msg
+view t caps model =
     div [ class "flex w-full flex-1 flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-3" ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text "Roles" ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.roles ]
             , div [ class "flex items-center gap-2" ]
-                [ viewSearch model.search
-                , viewCreateButton caps.canCreate model.form.open
+                [ viewSearch t model.search
+                , viewCreateButton t caps.canCreate model.form.open
                 ]
             ]
         , if model.form.open then
-            viewForm model.form
+            viewForm t model.form
 
           else
             text ""
         , case model.roles of
             Loading ->
-                hint "Loading roles..."
+                hint t.loadingRoles
 
             Failed ->
-                hint "Could not load roles."
+                hint t.couldNotLoadRoles
 
             Loaded roles ->
-                viewContent caps model (List.filter (matches model.search) roles)
+                viewContent t caps model (List.filter (matches model.search) roles)
         ]
 
 
-viewCreateButton : Bool -> Bool -> Html Msg
-viewCreateButton canCreate open =
+viewCreateButton : T -> Bool -> Bool -> Html Msg
+viewCreateButton t canCreate open =
     if canCreate then
         button
             [ onClick ToggleForm
             , class "flex items-center gap-1.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-zinc-800"
             ]
             (if open then
-                [ text "Cancel" ]
+                [ text t.cancel ]
 
              else
-                [ Icons.plus, text "Create role" ]
+                [ Icons.plus, text t.createRole ]
             )
 
     else
         text ""
 
 
-viewSearch : String -> Html Msg
-viewSearch query =
+viewSearch : T -> String -> Html Msg
+viewSearch t query =
     div [ class "relative" ]
         [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" ]
             [ Icons.search ]
         , input
             [ type_ "search"
-            , placeholder "Search roles"
+            , placeholder t.searchRoles
             , value query
             , onInput SetSearch
             , class "w-64 rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
@@ -402,21 +406,21 @@ viewSearch query =
         ]
 
 
-viewContent : Caps -> Model -> List RoleResponse -> Html Msg
-viewContent caps model roles =
+viewContent : T -> Caps -> Model -> List RoleResponse -> Html Msg
+viewContent t caps model roles =
     div [ class "flex flex-1 items-start gap-4" ]
-        [ div [ class "min-w-0 flex-1" ] [ viewTable model.selected roles ]
+        [ div [ class "min-w-0 flex-1" ] [ viewTable t model.selected roles ]
         , case model.selected of
             Just selection ->
-                viewDetail caps model selection
+                viewDetail t caps model selection
 
             Nothing ->
                 text ""
         ]
 
 
-viewTable : Maybe Selection -> List RoleResponse -> Html Msg
-viewTable selected roles =
+viewTable : T -> Maybe Selection -> List RoleResponse -> Html Msg
+viewTable t selected roles =
     let
         selectedId =
             Maybe.map (\s -> s.role.id) selected
@@ -425,15 +429,15 @@ viewTable selected roles =
         [ table [ class "w-full border-collapse text-left text-[13px]" ]
             [ thead []
                 [ tr [ class "border-b border-zinc-200 bg-zinc-50/60" ]
-                    [ th [ class headClass ] [ text "Name" ]
-                    , th [ class headClass ] [ text "Description" ]
+                    [ th [ class headClass ] [ text t.name ]
+                    , th [ class headClass ] [ text t.description ]
                     ]
                 ]
             , tbody []
                 (if List.isEmpty roles then
                     [ tr []
                         [ td [ class "px-3 py-6 text-center text-[13px] text-zinc-400", Html.Attributes.colspan 2 ]
-                            [ text "No roles match." ]
+                            [ text t.noRolesMatch ]
                         ]
                     ]
 
@@ -468,25 +472,26 @@ viewTableRow selectedId role =
         ]
 
 
-viewDetail : Caps -> Model -> Selection -> Html Msg
-viewDetail caps model selection =
+viewDetail : T -> Caps -> Model -> Selection -> Html Msg
+viewDetail t caps model selection =
     div []
         [ div [ class "w-96 shrink-0 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewName caps.canUpdate model.nameDraft selection.role.name
-                    :: section "Description"
-                        (viewDescription caps.canUpdate
+                    :: section t.description
+                        (viewDescription t
+                            caps.canUpdate
                             model.descriptionDraft
                             (Maybe.withDefault "" selection.role.description)
                         )
                     :: ((if caps.canReadPermissions then
-                            [ section "Permissions" (viewTree caps.canGrant model.permissions selection.permissions) ]
+                            [ section t.permissions (viewTree t caps.canGrant model.permissions selection.permissions) ]
 
                          else
                             []
                         )
                             ++ (if caps.canDelete then
-                                    [ viewDeleteButton ]
+                                    [ viewDeleteButton t ]
 
                                 else
                                     []
@@ -495,7 +500,7 @@ viewDetail caps model selection =
                 )
             ]
         , if model.confirmingDelete then
-            viewDeleteModal selection.role.name
+            viewDeleteModal t selection.role.name
 
           else
             text ""
@@ -518,53 +523,53 @@ viewName canUpdate nameDraft name =
         span [ class "text-sm font-semibold text-zinc-900" ] [ text name ]
 
 
-viewDescription : Bool -> String -> String -> Html Msg
-viewDescription canUpdate descriptionDraft current =
+viewDescription : T -> Bool -> String -> String -> Html Msg
+viewDescription t canUpdate descriptionDraft current =
     if canUpdate then
         textarea
             [ value descriptionDraft
             , onInput SetRoleDescription
             , on "change" (Decode.succeed CommitRole)
             , rows 2
-            , placeholder "No description"
+            , placeholder t.noDescriptionPlaceholder
             , class "w-full resize-none rounded-lg border border-zinc-200 px-2 py-1.5 text-[13px] text-zinc-700 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
             ]
             []
 
     else if current == "" then
-        hint "No description."
+        hint t.noDescription
 
     else
         p [ class "text-[13px] text-zinc-600" ] [ text current ]
 
 
-viewDeleteButton : Html Msg
-viewDeleteButton =
+viewDeleteButton : T -> Html Msg
+viewDeleteButton t =
     button
         [ onClick RequestDelete
         , class "self-start rounded-lg border border-red-200 px-2.5 py-1.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
         ]
-        [ text "Delete role" ]
+        [ text t.deleteRole ]
 
 
-viewDeleteModal : String -> Html Msg
-viewDeleteModal name =
+viewDeleteModal : T -> String -> Html Msg
+viewDeleteModal t name =
     div [ class "fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" ]
         [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg" ]
-            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text "Delete role" ]
+            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text t.deleteRole ]
             , p [ class "text-[13px] text-zinc-500" ]
-                [ text ("Delete \"" ++ name ++ "\"? This cannot be undone.") ]
+                [ text (t.deleteRoleConfirmPrefix ++ name ++ t.deleteRoleConfirmSuffix) ]
             , div [ class "flex justify-end gap-2" ]
                 [ button
                     [ onClick CancelDelete
                     , class "rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
                     ]
-                    [ text "Cancel" ]
+                    [ text t.cancel ]
                 , button
                     [ onClick ConfirmDelete
                     , class "rounded-lg bg-red-600 px-2.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-red-700"
                     ]
-                    [ text "Delete" ]
+                    [ text t.delete ]
                 ]
             ]
         ]
@@ -586,21 +591,21 @@ type Node
     = Node { name : String, segment : String, children : List Node }
 
 
-viewTree : Bool -> Remote (List PermissionInfo) -> Remote (List String) -> Html Msg
-viewTree canGrant permissions granted =
+viewTree : T -> Bool -> Remote (List PermissionInfo) -> Remote (List String) -> Html Msg
+viewTree t canGrant permissions granted =
     case ( permissions, granted ) of
         ( Loaded catalog, Loaded names ) ->
             div [ class "flex flex-col" ]
                 (List.concatMap (viewNode canGrant catalog names 0) (buildForest catalog))
 
         ( Failed, _ ) ->
-            hint "Could not load permissions."
+            hint t.couldNotLoadPermissions
 
         ( _, Failed ) ->
-            hint "Could not load."
+            hint t.couldNotLoad
 
         _ ->
-            hint "Loading..."
+            hint t.loading
 
 
 buildForest : List PermissionInfo -> List Node
@@ -698,44 +703,44 @@ segmentOf name =
         |> Maybe.withDefault name
 
 
-viewForm : Form -> Html Msg
-viewForm form_ =
+viewForm : T -> Form -> Html Msg
+viewForm t form_ =
     form
         [ onSubmit Submit
         , class "flex flex-col gap-3.5 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm"
         ]
         [ Input.view
-            { label = "Name"
+            { label = t.name
             , type_ = "text"
-            , placeholder = "Role name"
+            , placeholder = t.roleNamePlaceholder
             , value = form_.name
             , onInput = SetName
             }
         , Input.view
-            { label = "Description"
+            { label = t.description
             , type_ = "text"
-            , placeholder = "Optional"
+            , placeholder = t.optionalField
             , value = form_.description
             , onInput = SetFormDescription
             }
-        , viewError form_.error
+        , viewError t form_.error
         , Button.primary [ type_ "submit", disabled form_.submitting ]
             [ text
                 (if form_.submitting then
-                    "Creating..."
+                    t.creating
 
                  else
-                    "Create role"
+                    t.createRole
                 )
             ]
         ]
 
 
-viewError : Maybe String -> Html Msg
-viewError maybeError =
+viewError : T -> Maybe Http.Error -> Html Msg
+viewError t maybeError =
     case maybeError of
-        Just message ->
-            p [ class "text-[13px] text-red-600" ] [ text message ]
+        Just error ->
+            p [ class "text-[13px] text-red-600" ] [ text (createError t error) ]
 
         Nothing ->
             text ""
