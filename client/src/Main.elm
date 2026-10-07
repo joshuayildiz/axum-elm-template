@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Api
-import Api.Types exposing (AuthError, MeResponse, ServerMessage(..), clientMessageEncoder, serverMessageDecoder)
+import Api.Types exposing (AuthError, MeResponse, PublicConfig, ServerMessage(..), clientMessageEncoder, serverMessageDecoder)
 import Browser
 import Browser.Navigation as Nav
 import Components.Account as Account
@@ -16,6 +16,7 @@ import Json.Encode as Encode
 import Pages.Login as Login
 import Pages.Roles as Roles
 import Pages.Root as RootPage
+import Pages.Settings as Settings
 import Pages.Users as Users
 import Set exposing (Set)
 import Time
@@ -68,6 +69,7 @@ type Route
     | Login
     | Users
     | Roles
+    | Settings
     | NotFound
 
 
@@ -85,11 +87,13 @@ type alias Model =
     , login : Login.Model
     , users : Users.Model
     , roles : Roles.Model
+    , settings : Settings.Model
     , userMenuOpen : Bool
     , account : Maybe Account.Model
     , online : Set String
     , draft : String
     , messages : List ChatLine
+    , companyName : String
     }
 
 
@@ -97,9 +101,11 @@ type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url
     | GotMe (Result Http.Error (Result AuthError MeResponse))
+    | GotConfig (Result Http.Error PublicConfig)
     | LoginMsg Login.Msg
     | UsersMsg Users.Msg
     | RolesMsg Roles.Msg
+    | SettingsMsg Settings.Msg
     | SetLang Lang
     | ToggleUserMenu
     | OpenAccount Account.Tab
@@ -133,13 +139,15 @@ init flags url key =
       , login = Login.init
       , users = Users.init
       , roles = Roles.init
+      , settings = Settings.init
       , userMenuOpen = False
       , account = Nothing
       , online = Set.empty
       , draft = ""
       , messages = []
+      , companyName = ""
       }
-    , Api.getMe GotMe
+    , Cmd.batch [ Api.getMe GotMe, Api.getConfig GotConfig ]
     )
 
 
@@ -150,6 +158,7 @@ routeParser =
         , Parser.map Login (Parser.s "login")
         , Parser.map Users (Parser.s "users")
         , Parser.map Roles (Parser.s "roles")
+        , Parser.map Settings (Parser.s "settings")
         ]
 
 
@@ -172,6 +181,9 @@ pathFor route =
         Roles ->
             "/roles"
 
+        Settings ->
+            "/settings"
+
         Login ->
             "/login"
 
@@ -189,6 +201,9 @@ routeRequirement route =
 
         Roles ->
             Just "roles.read"
+
+        Settings ->
+            Just "settings.read"
 
         _ ->
             Nothing
@@ -253,6 +268,13 @@ enter model =
                     else
                         Cmd.none
 
+                ( Settings, Just permission ) ->
+                    if List.member permission me.permissions then
+                        Cmd.map SettingsMsg Settings.load
+
+                    else
+                        Cmd.none
+
                 _ ->
                     Cmd.none
 
@@ -312,6 +334,12 @@ update msg model =
                             { model | session = session, account = Nothing, online = Set.empty, messages = [] }
             in
             ( next, Cmd.batch [ guard next, enter next, socketCmd ] )
+
+        GotConfig (Ok config) ->
+            ( { model | companyName = config.companyName }, Cmd.none )
+
+        GotConfig (Err _) ->
+            ( model, Cmd.none )
 
         LoginMsg subMsg ->
             let
@@ -400,6 +428,13 @@ update msg model =
             in
             ( { model | roles = roles }, Cmd.map RolesMsg cmd )
 
+        SettingsMsg subMsg ->
+            let
+                ( settings, cmd ) =
+                    Settings.update subMsg model.settings
+            in
+            ( { model | settings = settings }, Cmd.map SettingsMsg cmd )
+
         Tick ->
             ( model, Api.getMe GotMe )
 
@@ -467,6 +502,9 @@ pageTitle t route =
         Roles ->
             t.roles
 
+        Settings ->
+            t.settings
+
         NotFound ->
             t.notFound
 
@@ -495,7 +533,7 @@ viewShell t model =
             centered model.lang
                 [ case model.route of
                     Login ->
-                        Html.map LoginMsg (Login.view t model.login)
+                        Html.map LoginMsg (Login.view t model.companyName model.login)
 
                     _ ->
                         viewLoading t
@@ -531,6 +569,7 @@ viewSignedIn t model me =
         [ div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
             [ Sidebar.view
                 { t = t
+                , companyName = me.companyName
                 , permissions = me.permissions
                 , activePath = pathFor model.route
                 , name = me.name
@@ -585,6 +624,9 @@ viewPage t model me =
                     }
                     model.roles
                 )
+
+        Settings ->
+            Html.map SettingsMsg (Settings.view t model.settings)
 
         _ ->
             viewNotFound t

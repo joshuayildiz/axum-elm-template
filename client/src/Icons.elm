@@ -6,6 +6,7 @@ module Icons exposing
     , roles
     , search
     , security
+    , settings
     , users
     )
 
@@ -66,3 +67,8 @@ search =
 security : Html msg
 security =
     icon "lock"
+
+
+settings : Html msg
+settings =
+    icon "settings"

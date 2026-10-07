@@ -13,7 +13,6 @@ pub(crate) async fn cmd(config: Config, pool: PgPool) -> io::Result<()> {
     let state = AppState {
         pool,
         jwt_secret: config.jwt_secret.into(),
-        totp_issuer: config.totp_issuer.into(),
         presence: Arc::new(Mutex::new(HashMap::new())),
         events,
     };

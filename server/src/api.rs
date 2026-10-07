@@ -9,12 +9,14 @@ pub(crate) fn genelm() -> io::Result<()> {
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
-                   TotpConfirm, TotpDisable],
+                   TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
+                   SettingsBody, PublicConfig],
         decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
-                   TotpConfirm, TotpDisable],
+                   TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
+                   SettingsBody, PublicConfig],
     })
     .expect("error generating Elm bindings");
     println!(
@@ -51,6 +53,7 @@ pub(crate) struct MeResponse {
     pub(crate) is_admin: bool,
     pub(crate) permissions: Vec<String>,
     pub(crate) totp_enabled: bool,
+    pub(crate) company_name: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
@@ -142,6 +145,35 @@ pub(crate) struct RoleBody {
 pub(crate) struct PermissionInfo {
     pub(crate) name: String,
     pub(crate) parent: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum SettingKind {
+    Bool,
+    Text,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct SettingInfo {
+    pub(crate) name: String,
+    pub(crate) value: String,
+    pub(crate) kind: SettingKind,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct SettingUpdate {
+    pub(crate) name: String,
+    pub(crate) value: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct SettingsBody {
+    pub(crate) settings: Vec<SettingUpdate>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct PublicConfig {
+    pub(crate) company_name: String,
 }
 
 // A message the server pushes down the websocket to a client. The server owns

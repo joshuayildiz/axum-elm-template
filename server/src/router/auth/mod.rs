@@ -114,10 +114,11 @@ async fn login_totp(
         return (jar, Json(Err(AuthError::AccountDeactivated)));
     }
 
+    let issuer = crate::settings::get(&state.pool, crate::settings::COMPANY_NAME).await;
     let valid = row
         .totp_secret
         .as_deref()
-        .and_then(|secret| build_totp(&state.totp_issuer, secret, &row.email))
+        .and_then(|secret| build_totp(&issuer, secret, &row.email))
         .and_then(|totp| totp.check_current(&body.code))
         .is_some();
 
@@ -131,8 +132,11 @@ async fn login_totp(
 
 async fn me(
     user: CurrentUser,
+    State(state): State<AppState>,
     perms: crate::rbac::check::Permissions,
 ) -> Json<Result<MeResponse, AuthError>> {
+    let company_name = crate::settings::get(&state.pool, crate::settings::COMPANY_NAME).await;
+
     Json(Ok(MeResponse {
         id: user.id,
         email: user.email,
@@ -140,6 +144,7 @@ async fn me(
         is_admin: user.is_admin,
         permissions: perms.names(),
         totp_enabled: user.totp_enabled,
+        company_name,
     }))
 }
 
@@ -179,8 +184,9 @@ async fn change_password(
 async fn totp_setup(user: CurrentUser, State(state): State<AppState>) -> Json<TotpSetup> {
     let secret = Secret::generate().to_base32();
 
-    let totp = build_totp(&state.totp_issuer, &secret, &user.email)
-        .expect("error building totp for a fresh secret");
+    let issuer = crate::settings::get(&state.pool, crate::settings::COMPANY_NAME).await;
+    let totp =
+        build_totp(&issuer, &secret, &user.email).expect("error building totp for a fresh secret");
     let otpauth_url = totp.to_url().expect("error building totp url");
     let qr = totp.to_qr_base64().expect("error building totp qr code");
 
@@ -196,7 +202,8 @@ async fn totp_enable(
     State(state): State<AppState>,
     Json(body): Json<TotpConfirm>,
 ) -> Json<Result<(), AuthError>> {
-    let valid = build_totp(&state.totp_issuer, &body.secret, &user.email)
+    let issuer = crate::settings::get(&state.pool, crate::settings::COMPANY_NAME).await;
+    let valid = build_totp(&issuer, &body.secret, &user.email)
         .and_then(|totp| totp.check_current(&body.code))
         .is_some();
 

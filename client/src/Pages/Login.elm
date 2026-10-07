@@ -6,7 +6,7 @@ import Browser.Dom as Dom
 import Components.Button as Button
 import Components.Card as Card
 import Components.Input as Input
-import Html exposing (Html, div, form, h1, input, p, text)
+import Html exposing (Html, div, form, h1, input, p, span, text)
 import Html.Attributes exposing (attribute, autofocus, class, disabled, id, type_, value)
 import Html.Events exposing (on, onInput, onSubmit)
 import Http
@@ -221,14 +221,26 @@ authErrorMessage t error =
             t.authInvalidCode
 
 
-view : T -> Model -> Html Msg
-view t model =
-    case model.step of
-        Credentials ->
-            viewCredentials t model
+view : T -> String -> Model -> Html Msg
+view t companyName model =
+    div [ class "flex w-full max-w-sm flex-col items-center gap-6" ]
+        [ viewBrand companyName
+        , case model.step of
+            Credentials ->
+                viewCredentials t model
 
-        AwaitingCode ->
-            viewCode t model
+            AwaitingCode ->
+                viewCode t model
+        ]
+
+
+viewBrand : String -> Html Msg
+viewBrand name =
+    div [ class "flex items-center gap-2.5" ]
+        [ div [ class "flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white" ]
+            [ text (String.toUpper (String.left 1 name)) ]
+        , span [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text name ]
+        ]
 
 
 viewCredentials : T -> Model -> Html Msg

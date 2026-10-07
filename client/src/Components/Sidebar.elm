@@ -23,6 +23,7 @@ tabs t =
     [ { label = t.home, path = "/", permission = Nothing, icon = Icons.home }
     , { label = t.users, path = "/users", permission = Just "users.read", icon = Icons.users }
     , { label = t.roles, path = "/roles", permission = Just "roles.read", icon = Icons.roles }
+    , { label = t.settings, path = "/settings", permission = Just "settings.read", icon = Icons.settings }
     ]
 
 
@@ -31,6 +32,7 @@ marks the tab for the current path as active.
 -}
 type alias Config msg =
     { t : T
+    , companyName : String
     , permissions : List String
     , activePath : String
     , name : Maybe String
@@ -45,7 +47,7 @@ type alias Config msg =
 view : Config msg -> Html msg
 view config =
     aside [ class "flex w-52 shrink-0 flex-col gap-5 border-r border-zinc-200/70 bg-white/60 p-3" ]
-        [ brand config.t
+        [ brand config.companyName
         , nav [ class "flex flex-1 flex-col gap-0.5 overflow-y-auto" ]
             (caption config.t.menu :: List.filterMap (viewTab config.permissions config.activePath) (tabs config.t))
         , viewUser config
@@ -99,12 +101,12 @@ menuItemWithIcon onSelect icon label =
         [ icon, text label ]
 
 
-brand : T -> Html msg
-brand t =
+brand : String -> Html msg
+brand name =
     div [ class "flex items-center gap-2 px-2 pt-1" ]
         [ div [ class "flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-bold text-white" ]
-            [ text "A" ]
-        , span [ class "text-sm font-semibold tracking-tight text-zinc-900" ] [ text t.console ]
+            [ text (String.toUpper (String.left 1 name)) ]
+        , span [ class "text-sm font-semibold tracking-tight text-zinc-900" ] [ text name ]
         ]
 
 

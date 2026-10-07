@@ -6,6 +6,7 @@ module Api exposing
     , deleteRole
     , deleteUser
     , errorToString
+    , getConfig
     , getHello
     , getMe
     , getRolePermissions
@@ -14,6 +15,7 @@ module Api exposing
     , getUserRoles
     , listPermissions
     , listRoles
+    , listSettings
     , listUsers
     , login
     , loginTotp
@@ -25,6 +27,7 @@ module Api exposing
     , totpEnable
     , totpSetup
     , updateRole
+    , updateSettings
     )
 
 import Api.Types
@@ -39,8 +42,11 @@ import Api.Types
         , MeResponse
         , PasswordError
         , PermissionInfo
+        , PublicConfig
         , RoleBody
         , RoleResponse
+        , SettingInfo
+        , SettingsBody
         , TotpConfirm
         , TotpDisable
         , TotpSetup
@@ -56,9 +62,12 @@ import Api.Types
         , passwordErrorDecoder
         , permissionInfoDecoder
         , permissionsBodyEncoder
+        , publicConfigDecoder
         , resultDecoder
         , roleBodyEncoder
         , roleResponseDecoder
+        , settingInfoDecoder
+        , settingsBodyEncoder
         , totpCodeEncoder
         , totpConfirmEncoder
         , totpDisableEncoder
@@ -75,6 +84,14 @@ getHello toMsg =
     Http.get
         { url = "/api/v1/hello"
         , expect = Http.expectJson toMsg helloResponseDecoder
+        }
+
+
+getConfig : (Result Http.Error PublicConfig -> msg) -> Cmd msg
+getConfig toMsg =
+    Http.get
+        { url = "/api/v1/config"
+        , expect = Http.expectJson toMsg publicConfigDecoder
         }
 
 
@@ -229,6 +246,27 @@ listRoles toMsg =
     Http.get
         { url = "/api/v1/rbac/roles"
         , expect = Http.expectJson toMsg (Decode.list roleResponseDecoder)
+        }
+
+
+listSettings : (Result Http.Error (List SettingInfo) -> msg) -> Cmd msg
+listSettings toMsg =
+    Http.get
+        { url = "/api/v1/settings"
+        , expect = Http.expectJson toMsg (Decode.list settingInfoDecoder)
+        }
+
+
+updateSettings : SettingsBody -> (Result Http.Error () -> msg) -> Cmd msg
+updateSettings body toMsg =
+    Http.request
+        { method = "PUT"
+        , headers = []
+        , url = "/api/v1/settings"
+        , body = Http.jsonBody (settingsBodyEncoder body)
+        , expect = Http.expectWhatever toMsg
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 

@@ -26,4 +26,8 @@ crate::permissions! {
             grant,
         }
     },
+    settings {
+        read,
+        update,
+    },
 }

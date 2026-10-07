@@ -94,7 +94,6 @@ type alias T =
     , goHome : String
 
     -- Sidebar
-    , console : String
     , menu : String
     , signedInAs : String
     , logOut : String
@@ -190,6 +189,13 @@ type alias T =
     , enterCode : String
     , verify : String
     , authInvalidCode : String
+    , settings : String
+    , settingsIntro : String
+    , save : String
+    , saved : String
+    , settingsSaveError : String
+    , settingRegistrationEnabled : String
+    , settingCompanyName : String
     }
 
 
@@ -211,7 +217,6 @@ en =
     , home = "Home"
     , notFound = "Not found"
     , goHome = "Go home"
-    , console = "Console"
     , menu = "Menu"
     , signedInAs = "Signed in as"
     , logOut = "Log out"
@@ -294,6 +299,13 @@ en =
     , enterCode = "Enter the code from your authenticator app."
     , verify = "Verify"
     , authInvalidCode = "That code is not valid. Try again."
+    , settings = "Settings"
+    , settingsIntro = "Manage application settings. Changes apply right away."
+    , save = "Save"
+    , saved = "Settings saved."
+    , settingsSaveError = "Could not save settings."
+    , settingRegistrationEnabled = "Allow registration"
+    , settingCompanyName = "Company name"
     }
 
 
@@ -315,7 +327,6 @@ tr =
     , home = "Ana Sayfa"
     , notFound = "Bulunamadı"
     , goHome = "Ana sayfaya git"
-    , console = "Konsol"
     , menu = "Menü"
     , signedInAs = "Oturum açan"
     , logOut = "Çıkış yap"
@@ -398,4 +409,11 @@ tr =
     , enterCode = "Kimlik doğrulama uygulamanızdaki kodu girin."
     , verify = "Doğrula"
     , authInvalidCode = "Bu kod geçerli değil. Tekrar deneyin."
+    , settings = "Ayarlar"
+    , settingsIntro = "Uygulama ayarlarını yönetin. Değişiklikler hemen uygulanır."
+    , save = "Kaydet"
+    , saved = "Ayarlar kaydedildi."
+    , settingsSaveError = "Ayarlar kaydedilemedi."
+    , settingRegistrationEnabled = "Kayıt olmaya izin ver"
+    , settingCompanyName = "Şirket adı"
     }

@@ -4,6 +4,7 @@ mod config;
 mod jwt;
 mod rbac;
 mod router;
+mod settings;
 
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;

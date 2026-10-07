@@ -79,6 +79,7 @@ type alias MeResponse =
     , isAdmin : Bool
     , permissions : List String
     , totpEnabled : Bool
+    , companyName : String
     }
 
 
@@ -91,6 +92,7 @@ meResponseEncoder struct =
         , ( "is_admin", Json.Encode.bool struct.isAdmin )
         , ( "permissions", Json.Encode.list Json.Encode.string struct.permissions )
         , ( "totp_enabled", Json.Encode.bool struct.totpEnabled )
+        , ( "company_name", Json.Encode.string struct.companyName )
         ]
 
 
@@ -347,6 +349,75 @@ totpDisableEncoder struct =
         ]
 
 
+type SettingKind
+    = Bool
+    | Text
+
+
+settingKindEncoder : SettingKind -> Json.Encode.Value
+settingKindEncoder enum =
+    case enum of
+        Bool ->
+            Json.Encode.string "Bool"
+
+        Text ->
+            Json.Encode.string "Text"
+
+
+type alias SettingInfo =
+    { name : String
+    , value : String
+    , kind : SettingKind
+    }
+
+
+settingInfoEncoder : SettingInfo -> Json.Encode.Value
+settingInfoEncoder struct =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string struct.name )
+        , ( "value", Json.Encode.string struct.value )
+        , ( "kind", settingKindEncoder struct.kind )
+        ]
+
+
+type alias SettingUpdate =
+    { name : String
+    , value : String
+    }
+
+
+settingUpdateEncoder : SettingUpdate -> Json.Encode.Value
+settingUpdateEncoder struct =
+    Json.Encode.object
+        [ ( "name", Json.Encode.string struct.name )
+        , ( "value", Json.Encode.string struct.value )
+        ]
+
+
+type alias SettingsBody =
+    { settings : List SettingUpdate
+    }
+
+
+settingsBodyEncoder : SettingsBody -> Json.Encode.Value
+settingsBodyEncoder struct =
+    Json.Encode.object
+        [ ( "settings", Json.Encode.list settingUpdateEncoder struct.settings )
+        ]
+
+
+type alias PublicConfig =
+    { companyName : String
+    }
+
+
+publicConfigEncoder : PublicConfig -> Json.Encode.Value
+publicConfigEncoder struct =
+    Json.Encode.object
+        [ ( "company_name", Json.Encode.string struct.companyName )
+        ]
+
+
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
 helloResponseDecoder =
     Json.Decode.succeed HelloResponse
@@ -378,6 +449,7 @@ meResponseDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "permissions" (Json.Decode.list Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "totp_enabled" Json.Decode.bool))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "company_name" Json.Decode.string))
 
 
 authErrorDecoder : Json.Decode.Decoder AuthError
@@ -588,3 +660,56 @@ totpDisableDecoder : Json.Decode.Decoder TotpDisable
 totpDisableDecoder =
     Json.Decode.succeed TotpDisable
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))
+
+
+settingKindDecoder : Json.Decode.Decoder SettingKind
+settingKindDecoder =
+    Json.Decode.oneOf
+        [ Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "Bool" ->
+                            Json.Decode.succeed Bool
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        , Json.Decode.string
+            |> Json.Decode.andThen
+                (\x ->
+                    case x of
+                        "Text" ->
+                            Json.Decode.succeed Text
+
+                        unexpected ->
+                            Json.Decode.fail <| "Unexpected variant " ++ unexpected
+                )
+        ]
+
+
+settingInfoDecoder : Json.Decode.Decoder SettingInfo
+settingInfoDecoder =
+    Json.Decode.succeed SettingInfo
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "value" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "kind" settingKindDecoder))
+
+
+settingUpdateDecoder : Json.Decode.Decoder SettingUpdate
+settingUpdateDecoder =
+    Json.Decode.succeed SettingUpdate
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "value" Json.Decode.string))
+
+
+settingsBodyDecoder : Json.Decode.Decoder SettingsBody
+settingsBodyDecoder =
+    Json.Decode.succeed SettingsBody
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "settings" (Json.Decode.list settingUpdateDecoder)))
+
+
+publicConfigDecoder : Json.Decode.Decoder PublicConfig
+publicConfigDecoder =
+    Json.Decode.succeed PublicConfig
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "company_name" Json.Decode.string))
