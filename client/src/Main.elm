@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Api
-import Api.Types exposing (AuthError, MeResponse)
+import Api.Types exposing (AuthError, MeResponse, ServerMessage(..), clientMessageEncoder, serverMessageDecoder)
 import Browser
 import Browser.Navigation as Nav
 import Components.LangSwitcher as LangSwitcher
@@ -10,10 +10,13 @@ import Html exposing (Html, a, div, h1, p, text)
 import Html.Attributes exposing (class, href)
 import Http
 import I18n exposing (Lang, T)
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Pages.Login as Login
 import Pages.Roles as Roles
 import Pages.Root as RootPage
 import Pages.Users as Users
+import Set exposing (Set)
 import Time
 import Url exposing (Url)
 import Url.Parser as Parser exposing (Parser)
@@ -25,11 +28,38 @@ writes it to `localStorage`.
 port setLanguage : String -> Cmd msg
 
 
+{-| Open the websocket. `index.html` holds the socket and reconnects it. Called
+once the session is known to be signed in, because the upgrade needs the cookie.
+-}
+port connectSocket : () -> Cmd msg
+
+
+{-| Close the websocket and stop reconnecting. Called on sign-out.
+-}
+port disconnectSocket : () -> Cmd msg
+
+
+{-| Send one encoded `ClientMessage` up the socket.
+-}
+port sendSocket : String -> Cmd msg
+
+
+{-| Receive one raw `ServerMessage` JSON string from the socket.
+-}
+port socketMessage : (String -> msg) -> Sub msg
+
+
 {-| The values `index.html` passes in at startup. `language` is the stored choice
 or the browser language.
 -}
 type alias Flags =
     { language : String }
+
+
+{-| One broadcast line, as shown in the home-page log.
+-}
+type alias ChatLine =
+    { from : String, text : String }
 
 
 type Route
@@ -55,6 +85,9 @@ type alias Model =
     , users : Users.Model
     , roles : Roles.Model
     , userMenuOpen : Bool
+    , online : Set String
+    , draft : String
+    , messages : List ChatLine
     }
 
 
@@ -70,6 +103,9 @@ type Msg
     | Logout
     | LoggedOut (Result Http.Error ())
     | Tick
+    | SocketMessage String
+    | DraftChanged String
+    | SendBroadcast
 
 
 main : Program Flags Model Msg
@@ -94,6 +130,9 @@ init flags url key =
       , users = Users.init
       , roles = Roles.init
       , userMenuOpen = False
+      , online = Set.empty
+      , draft = ""
+      , messages = []
       }
     , Api.getMe GotMe
     )
@@ -242,10 +281,32 @@ update msg model =
                         _ ->
                             Anonymous
 
+                -- Open the socket when the session becomes signed in, and close
+                -- it when it ends. The me poll runs every 30 seconds, so compare
+                -- against the old session to act only on a real change.
+                socketCmd =
+                    case ( model.session, session ) of
+                        ( SignedIn _, SignedIn _ ) ->
+                            Cmd.none
+
+                        ( _, SignedIn _ ) ->
+                            connectSocket ()
+
+                        ( SignedIn _, _ ) ->
+                            disconnectSocket ()
+
+                        _ ->
+                            Cmd.none
+
                 next =
-                    { model | session = session }
+                    case session of
+                        SignedIn _ ->
+                            { model | session = session }
+
+                        _ ->
+                            { model | session = session, online = Set.empty, messages = [] }
             in
-            ( next, Cmd.batch [ guard next, enter next ] )
+            ( next, Cmd.batch [ guard next, enter next, socketCmd ] )
 
         LoginMsg subMsg ->
             let
@@ -281,9 +342,9 @@ update msg model =
             -- cookie is short lived, so a lost call still ends the session soon.
             let
                 next =
-                    { model | session = Anonymous, userMenuOpen = False }
+                    { model | session = Anonymous, userMenuOpen = False, online = Set.empty, messages = [] }
             in
-            ( next, guard next )
+            ( next, Cmd.batch [ guard next, disconnectSocket () ] )
 
         UsersMsg subMsg ->
             let
@@ -302,6 +363,38 @@ update msg model =
         Tick ->
             ( model, Api.getMe GotMe )
 
+        SocketMessage raw ->
+            case Decode.decodeString serverMessageDecoder raw of
+                Ok (Snapshot { online }) ->
+                    ( { model | online = Set.fromList online }, Cmd.none )
+
+                Ok (Online { userId }) ->
+                    ( { model | online = Set.insert userId model.online }, Cmd.none )
+
+                Ok (Offline { userId }) ->
+                    ( { model | online = Set.remove userId model.online }, Cmd.none )
+
+                Ok (Broadcast { from, text }) ->
+                    -- Newest first, and capped so the log cannot grow forever.
+                    ( { model | messages = List.take 50 ({ from = from, text = text } :: model.messages) }
+                    , Cmd.none
+                    )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+        DraftChanged text ->
+            ( { model | draft = text }, Cmd.none )
+
+        SendBroadcast ->
+            if String.trim model.draft == "" then
+                ( model, Cmd.none )
+
+            else
+                ( { model | draft = "" }
+                , sendSocket (Encode.encode 0 (clientMessageEncoder (Api.Types.SendBroadcast { text = model.draft })))
+                )
+
 
 {-| While signed in, re-check the session every thirty seconds. Each check
 renews the token, so an open tab stays signed in past the one-minute token life.
@@ -310,7 +403,10 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model.session of
         SignedIn _ ->
-            Time.every 30000 (\_ -> Tick)
+            Sub.batch
+                [ Time.every 30000 (\_ -> Tick)
+                , socketMessage SocketMessage
+                ]
 
         _ ->
             Sub.none
@@ -413,11 +509,12 @@ viewPage : T -> Model -> MeResponse -> Html Msg
 viewPage t model me =
     case model.route of
         Root ->
-            RootPage.view t
+            RootPage.view t model.draft model.messages DraftChanged SendBroadcast
 
         Users ->
             Html.map UsersMsg
                 (Users.view t
+                    model.online
                     { canCreate = List.member "users.create" me.permissions
                     , canDelete = List.member "users.delete" me.permissions
                     , canReadRoles = List.member "users.roles.read" me.permissions

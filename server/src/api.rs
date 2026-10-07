@@ -7,10 +7,10 @@ pub(crate) fn genelm() -> io::Result<()> {
     elm_rs::export!("Api.Types", &mut buf, {
         encoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
-                   RoleBody, PermissionInfo],
+                   RoleBody, PermissionInfo, ServerMessage, ClientMessage],
         decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
-                   RoleBody, PermissionInfo],
+                   RoleBody, PermissionInfo, ServerMessage, ClientMessage],
     })
     .expect("error generating Elm bindings");
     println!(
@@ -95,6 +95,30 @@ pub(crate) struct RoleBody {
 pub(crate) struct PermissionInfo {
     pub(crate) name: String,
     pub(crate) parent: Option<String>,
+}
+
+// A message the server pushes down the websocket to a client. The server owns
+// the truth, so a client learns who is online and sees every broadcast only
+// from these messages, never from its own local state.
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum ServerMessage {
+    // The full set of online user ids, sent once when a socket opens.
+    Snapshot { online: Vec<String> },
+    // A user opened their first connection.
+    Online { user_id: String },
+    // A user closed their last connection.
+    Offline { user_id: String },
+    // A broadcast line, relayed to every connected client. `from` is the
+    // sender email, for display.
+    Broadcast { from: String, text: String },
+}
+
+// A message a client sends up the websocket. The server relays it to everyone.
+// The variant name differs from `ServerMessage::Broadcast` because both enums
+// share one Elm module, where two constructors cannot have the same name.
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) enum ClientMessage {
+    SendBroadcast { text: String },
 }
 
 impl axum::response::IntoResponse for AuthError {

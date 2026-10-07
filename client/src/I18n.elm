@@ -157,6 +157,14 @@ type alias T =
     , rootBody : String
     , rootEditPrefix : String
     , rootEditSuffix : String
+
+    -- Realtime presence and broadcast
+    , online : String
+    , offline : String
+    , broadcastTitle : String
+    , broadcastPlaceholder : String
+    , broadcastSend : String
+    , broadcastEmpty : String
     }
 
 
@@ -230,6 +238,12 @@ en =
     , rootBody = "This is the home page. The server is running and you are signed in. Build your own screens from here."
     , rootEditPrefix = "Edit "
     , rootEditSuffix = " to change this page."
+    , online = "online"
+    , offline = "offline"
+    , broadcastTitle = "Live broadcast"
+    , broadcastPlaceholder = "Send a line to everyone"
+    , broadcastSend = "Send"
+    , broadcastEmpty = "No messages yet."
     }
 
 
@@ -303,4 +317,10 @@ tr =
     , rootBody = "Burası ana sayfa. Sunucu çalışıyor ve oturum açtınız. Kendi ekranlarınızı buradan oluşturun."
     , rootEditPrefix = "Bu sayfayı değiştirmek için "
     , rootEditSuffix = " dosyasını düzenleyin."
+    , online = "çevrimiçi"
+    , offline = "çevrimdışı"
+    , broadcastTitle = "Canlı yayın"
+    , broadcastPlaceholder = "Herkese bir satır gönderin"
+    , broadcastSend = "Gönder"
+    , broadcastEmpty = "Henüz mesaj yok."
     }

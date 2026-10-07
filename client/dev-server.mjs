@@ -13,7 +13,15 @@ elmWatch(process.argv.slice(2), {
           onRequest(request, response);
         }
       })
-      .on("upgrade", onUpgrade),
+      .on("upgrade", (request, socket, head) => {
+        // The backend websocket lives under /api/. Everything else is
+        // elm-watch's own hot-reload socket.
+        if (request.url.startsWith("/api/")) {
+          upgradeProxy(request, socket, head, BACKEND_PORT);
+        } else {
+          onUpgrade(request, socket, head);
+        }
+      }),
 })
   .then((exitCode) => process.exit(exitCode))
   .catch((error) => {
@@ -42,4 +50,31 @@ function localhostProxy(request, response, port) {
   });
 
   request.pipe(proxyRequest, { end: true });
+}
+
+function upgradeProxy(request, socket, head, port) {
+  const proxyRequest = http.request({
+    hostname: "127.0.0.1",
+    port,
+    path: request.url,
+    method: request.method,
+    headers: request.headers,
+  });
+
+  proxyRequest.on("upgrade", (proxyResponse, proxySocket, proxyHead) => {
+    const headers = Object.entries(proxyResponse.headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("\r\n");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\n${headers}\r\n\r\n`);
+
+    if (proxyHead && proxyHead.length) proxySocket.unshift(proxyHead);
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+
+    proxySocket.on("error", () => socket.destroy());
+    socket.on("error", () => proxySocket.destroy());
+  });
+
+  proxyRequest.on("error", () => socket.destroy());
+  proxyRequest.end();
 }

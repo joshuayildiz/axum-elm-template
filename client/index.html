@@ -18,6 +18,46 @@
 			localStorage.setItem('lang', code);
 			document.documentElement.lang = code;
 		});
+
+		// The websocket. Elm asks to connect once signed in and to disconnect on
+		// sign-out. While a connection is wanted, a dropped socket reconnects with
+		// a growing delay. The me poll keeps the cookie fresh, so each reconnect
+		// handshake passes auth.
+		var socket = null;
+		var wsWanted = false;
+		var wsRetry = 500;
+
+		function openSocket() {
+			var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+			socket = new WebSocket(proto + '//' + location.host + '/api/v1/ws');
+			socket.onopen = function () {
+				wsRetry = 500;
+			};
+			socket.onmessage = function (event) {
+				app.ports.socketMessage.send(event.data);
+			};
+			socket.onclose = function () {
+				socket = null;
+				if (wsWanted) {
+					setTimeout(openSocket, wsRetry);
+					wsRetry = Math.min(wsRetry * 2, 10000);
+				}
+			};
+		}
+
+		app.ports.connectSocket.subscribe(function () {
+			wsWanted = true;
+			if (!socket) openSocket();
+		});
+
+		app.ports.disconnectSocket.subscribe(function () {
+			wsWanted = false;
+			if (socket) socket.close();
+		});
+
+		app.ports.sendSocket.subscribe(function (data) {
+			if (socket && socket.readyState === WebSocket.OPEN) socket.send(data);
+		});
 	</script>
 </body>
 </html>

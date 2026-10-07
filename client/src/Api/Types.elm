@@ -209,6 +209,40 @@ permissionInfoEncoder struct =
         ]
 
 
+type ServerMessage
+    = Snapshot { online : List String }
+    | Online { userId : String }
+    | Offline { userId : String }
+    | Broadcast { from : String, text : String }
+
+
+serverMessageEncoder : ServerMessage -> Json.Encode.Value
+serverMessageEncoder enum =
+    case enum of
+        Snapshot { online } ->
+            Json.Encode.object [ ( "Snapshot", Json.Encode.object [ ( "online", Json.Encode.list Json.Encode.string online ) ] ) ]
+
+        Online { userId } ->
+            Json.Encode.object [ ( "Online", Json.Encode.object [ ( "user_id", Json.Encode.string userId ) ] ) ]
+
+        Offline { userId } ->
+            Json.Encode.object [ ( "Offline", Json.Encode.object [ ( "user_id", Json.Encode.string userId ) ] ) ]
+
+        Broadcast { from, text } ->
+            Json.Encode.object [ ( "Broadcast", Json.Encode.object [ ( "from", Json.Encode.string from ), ( "text", Json.Encode.string text ) ] ) ]
+
+
+type ClientMessage
+    = SendBroadcast { text : String }
+
+
+clientMessageEncoder : ClientMessage -> Json.Encode.Value
+clientMessageEncoder enum =
+    case enum of
+        SendBroadcast { text } ->
+            Json.Encode.object [ ( "SendBroadcast", Json.Encode.object [ ( "text", Json.Encode.string text ) ] ) ]
+
+
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
 helloResponseDecoder =
     Json.Decode.succeed HelloResponse
@@ -324,3 +358,37 @@ permissionInfoDecoder =
     Json.Decode.succeed PermissionInfo
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" Json.Decode.string))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent" (Json.Decode.nullable Json.Decode.string)))
+
+
+serverMessageDecoder : Json.Decode.Decoder ServerMessage
+serverMessageDecoder =
+    let
+        elmRsConstructSnapshot online =
+            Snapshot { online = online }
+
+        elmRsConstructOnline userId =
+            Online { userId = userId }
+
+        elmRsConstructOffline userId =
+            Offline { userId = userId }
+
+        elmRsConstructBroadcast from text =
+            Broadcast { from = from, text = text }
+    in
+    Json.Decode.oneOf
+        [ Json.Decode.field "Snapshot" (Json.Decode.succeed elmRsConstructSnapshot |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "online" (Json.Decode.list Json.Decode.string))))
+        , Json.Decode.field "Online" (Json.Decode.succeed elmRsConstructOnline |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "user_id" Json.Decode.string)))
+        , Json.Decode.field "Offline" (Json.Decode.succeed elmRsConstructOffline |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "user_id" Json.Decode.string)))
+        , Json.Decode.field "Broadcast" (Json.Decode.succeed elmRsConstructBroadcast |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "from" Json.Decode.string)) |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" Json.Decode.string)))
+        ]
+
+
+clientMessageDecoder : Json.Decode.Decoder ClientMessage
+clientMessageDecoder =
+    let
+        elmRsConstructSendBroadcast text =
+            SendBroadcast { text = text }
+    in
+    Json.Decode.oneOf
+        [ Json.Decode.field "SendBroadcast" (Json.Decode.succeed elmRsConstructSendBroadcast |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" Json.Decode.string)))
+        ]

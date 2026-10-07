@@ -5,13 +5,14 @@ import Api.Types exposing (PermissionInfo, RoleResponse, UserResponse)
 import Components.Button as Button
 import Components.Input as Input
 import Html exposing (Html, button, datalist, div, form, h1, h2, input, label, li, option, p, span, table, tbody, td, text, th, thead, tr, ul)
-import Html.Attributes exposing (checked, class, disabled, id, list, placeholder, property, style, type_, value)
+import Html.Attributes exposing (checked, class, disabled, id, list, placeholder, property, style, title, type_, value)
 import Html.Events exposing (on, onCheck, onClick, onInput, onSubmit, targetValue)
 import Http
 import I18n exposing (T)
 import Icons
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Set exposing (Set)
 
 
 {-| A value we fetch from the server: in flight, loaded, or failed.
@@ -405,11 +406,15 @@ type alias Caps =
     }
 
 
-view : T -> Caps -> Model -> Html Msg
-view t caps model =
+view : T -> Set String -> Caps -> Model -> Html Msg
+view t online caps model =
     div [ class "flex w-full flex-1 flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-3" ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.users ]
+            [ div [ class "flex items-center gap-2.5" ]
+                [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.users ]
+                , span [ class "rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700" ]
+                    [ text (String.fromInt (Set.size online) ++ " " ++ t.online) ]
+                ]
             , div [ class "flex items-center gap-2" ]
                 [ viewSearch t model.search
                 , viewCreateButton t caps.canCreate model.form.open
@@ -428,7 +433,7 @@ view t caps model =
                 hint t.couldNotLoadUsers
 
             Loaded users ->
-                viewContent t caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected (List.filter (matches model.search) users)
+                viewContent t online caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected (List.filter (matches model.search) users)
         ]
 
 
@@ -466,10 +471,10 @@ viewSearch t query =
         ]
 
 
-viewContent : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> List UserResponse -> Html Msg
-viewContent t caps permissions allRoles roleInput confirmingDelete selected users =
+viewContent : T -> Set String -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> List UserResponse -> Html Msg
+viewContent t online caps permissions allRoles roleInput confirmingDelete selected users =
     div [ class "flex flex-1 items-start gap-4" ]
-        [ div [ class "min-w-0 flex-1" ] [ viewTable t selected users ]
+        [ div [ class "min-w-0 flex-1" ] [ viewTable t online selected users ]
         , case selected of
             Just selection ->
                 viewDetail t caps permissions allRoles roleInput confirmingDelete selection
@@ -479,8 +484,8 @@ viewContent t caps permissions allRoles roleInput confirmingDelete selected user
         ]
 
 
-viewTable : T -> Maybe Selection -> List UserResponse -> Html Msg
-viewTable t selected users =
+viewTable : T -> Set String -> Maybe Selection -> List UserResponse -> Html Msg
+viewTable t online selected users =
     let
         selectedId =
             Maybe.map (\s -> s.user.id) selected
@@ -503,7 +508,7 @@ viewTable t selected users =
                     ]
 
                  else
-                    List.map (viewTableRow t selectedId) users
+                    List.map (viewTableRow t online selectedId) users
                 )
             ]
         ]
@@ -514,8 +519,8 @@ headClass =
     "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400"
 
 
-viewTableRow : T -> Maybe String -> UserResponse -> Html Msg
-viewTableRow t selectedId user =
+viewTableRow : T -> Set String -> Maybe String -> UserResponse -> Html Msg
+viewTableRow t online selectedId user =
     tr
         [ onClick (Select user)
         , class
@@ -528,7 +533,12 @@ viewTableRow t selectedId user =
                    )
             )
         ]
-        [ td [ class "px-3 py-2 font-medium text-zinc-900" ] [ text user.email ]
+        [ td [ class "px-3 py-2 font-medium text-zinc-900" ]
+            [ div [ class "flex items-center gap-2" ]
+                [ viewDot t (Set.member user.id online)
+                , text user.email
+                ]
+            ]
         , td [ class "px-3 py-2 text-zinc-600" ] [ text (Maybe.withDefault "—" user.name) ]
         , td [ class "px-3 py-2 text-right" ]
             [ if user.isAdmin then
@@ -539,6 +549,32 @@ viewTableRow t selectedId user =
                 span [ class "text-zinc-300" ] [ text "—" ]
             ]
         ]
+
+
+{-| A small dot for a user's live connection state. Green when the user has an
+open websocket, gray when not. The title reads the localized state.
+-}
+viewDot : T -> Bool -> Html Msg
+viewDot t isOnline =
+    span
+        [ class
+            ("h-2 w-2 shrink-0 rounded-full "
+                ++ (if isOnline then
+                        "bg-emerald-500"
+
+                    else
+                        "bg-zinc-300"
+                   )
+            )
+        , title
+            (if isOnline then
+                t.online
+
+             else
+                t.offline
+            )
+        ]
+        []
 
 
 viewDetail : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Selection -> Html Msg

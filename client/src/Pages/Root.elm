@@ -1,13 +1,18 @@
 module Pages.Root exposing (view)
 
-import Html exposing (Html, code, div, h1, p, span, text)
-import Html.Attributes exposing (class)
+import Html exposing (Html, button, code, div, form, h1, h2, input, p, span, text)
+import Html.Attributes exposing (class, placeholder, type_, value)
+import Html.Events exposing (onInput, onSubmit)
 import I18n exposing (T)
 
 
-view : T -> Html msg
-view t =
-    div [ class "relative flex w-full flex-1 flex-col items-center justify-center gap-6 text-center" ]
+{-| The home page. Below the hero sits the live broadcast demo. The draft text,
+the message log, and the two handlers come from `Main`, which owns the socket, so
+the log survives navigation between pages.
+-}
+view : T -> String -> List { from : String, text : String } -> (String -> msg) -> msg -> Html msg
+view t draft messages onInput_ onSend =
+    div [ class "relative flex w-full flex-1 flex-col items-center justify-center gap-10 text-center" ]
         [ div [ class "pointer-events-none absolute -top-16 h-64 w-64 rounded-full bg-emerald-200/40 blur-3xl" ] []
         , div [ class "relative flex flex-col items-center gap-6" ]
             [ span [ class "inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-[11px] font-medium text-zinc-500" ]
@@ -29,4 +34,42 @@ view t =
                 , text t.rootEditSuffix
                 ]
             ]
+        , viewBroadcast t draft messages onInput_ onSend
+        ]
+
+
+viewBroadcast : T -> String -> List { from : String, text : String } -> (String -> msg) -> msg -> Html msg
+viewBroadcast t draft messages onInput_ onSend =
+    div [ class "relative flex w-full max-w-sm flex-col gap-3 rounded-xl border border-zinc-200/70 bg-white p-5 text-left shadow-sm" ]
+        [ h2 [ class "text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400" ]
+            [ text t.broadcastTitle ]
+        , form [ class "flex items-center gap-2", onSubmit onSend ]
+            [ input
+                [ type_ "text"
+                , placeholder t.broadcastPlaceholder
+                , value draft
+                , onInput onInput_
+                , class "min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+                ]
+                []
+            , button
+                [ type_ "submit"
+                , class "shrink-0 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-800"
+                ]
+                [ text t.broadcastSend ]
+            ]
+        , if List.isEmpty messages then
+            p [ class "text-[13px] text-zinc-400" ] [ text t.broadcastEmpty ]
+
+          else
+            div [ class "flex flex-col gap-1.5" ] (List.map viewLine messages)
+        ]
+
+
+viewLine : { from : String, text : String } -> Html msg
+viewLine line =
+    p [ class "text-[13px] text-zinc-600" ]
+        [ span [ class "font-medium text-zinc-900" ] [ text line.from ]
+        , text ": "
+        , text line.text
         ]

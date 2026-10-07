@@ -5,16 +5,18 @@ edition = "2024"
 
 [dependencies]
 argon2 = "0.6.0"
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["ws"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
 clap = { version = "4.6.7", features = ["derive"] }
 dialoguer = { version = "0.12.0", features = ["password"] }
 dotenvy = "0.15.7"
 elm_rs = "0.2.3"
+futures-util = { version = "0.3.34", features = ["sink"] }
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["rust_crypto"] }
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "migrate", "macros", "uuid"] }
-tokio = { version = "1.53.1", features = ["net", "rt"] }
+tokio = { version = "1.53.1", features = ["macros", "net", "rt", "sync"] }
 tower-http = { version = "0.7.1", features = ["fs"] }
 uuid = { version = "1.26.1", features = ["serde"] }
 

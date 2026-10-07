@@ -4,11 +4,17 @@ use sqlx::PgPool;
 use std::io;
 
 pub(crate) async fn cmd(config: Config, pool: PgPool) -> io::Result<()> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
     use tokio::net::TcpListener;
+    use tokio::sync::broadcast;
 
+    let (events, _) = broadcast::channel(100);
     let state = AppState {
         pool,
         jwt_secret: config.jwt_secret.into(),
+        presence: Arc::new(Mutex::new(HashMap::new())),
+        events,
     };
     let app = router::build(state);
 
