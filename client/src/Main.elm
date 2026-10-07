@@ -38,6 +38,7 @@ type alias Model =
     , login : Login.Model
     , users : Users.Model
     , roles : Roles.Model
+    , userMenuOpen : Bool
     }
 
 
@@ -46,9 +47,11 @@ type Msg
     | UrlChanged Url
     | GotMe (Result Http.Error (Result AuthError MeResponse))
     | LoginMsg Login.Msg
-    | RootMsg RootPage.Msg
     | UsersMsg Users.Msg
     | RolesMsg Roles.Msg
+    | ToggleUserMenu
+    | Logout
+    | LoggedOut (Result Http.Error ())
     | Tick
 
 
@@ -72,6 +75,7 @@ init _ url key =
       , login = Login.init
       , users = Users.init
       , roles = Roles.init
+      , userMenuOpen = False
       }
     , Api.getMe GotMe
     )
@@ -245,20 +249,20 @@ update msg model =
             in
             ( next, Cmd.batch [ Cmd.map LoginMsg cmd, afterLogin, guard next ] )
 
-        RootMsg subMsg ->
+        ToggleUserMenu ->
+            ( { model | userMenuOpen = not model.userMenuOpen }, Cmd.none )
+
+        Logout ->
+            ( model, Api.logout LoggedOut )
+
+        LoggedOut _ ->
+            -- End the session on the client even if the request failed. The
+            -- cookie is short lived, so a lost call still ends the session soon.
             let
-                ( cmd, event ) =
-                    RootPage.update subMsg
-
                 next =
-                    case event of
-                        RootPage.LoggedOut ->
-                            { model | session = Anonymous }
-
-                        RootPage.NoEvent ->
-                            model
+                    { model | session = Anonymous, userMenuOpen = False }
             in
-            ( next, Cmd.batch [ Cmd.map RootMsg cmd, guard next ] )
+            ( next, guard next )
 
         UsersMsg subMsg ->
             let
@@ -363,6 +367,9 @@ viewSignedIn model me =
             , activePath = pathFor model.route
             , name = me.name
             , email = me.email
+            , menuOpen = model.userMenuOpen
+            , onToggleMenu = ToggleUserMenu
+            , onLogout = Logout
             }
         , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
             [ viewPage model me ]
@@ -373,7 +380,7 @@ viewPage : Model -> MeResponse -> Html Msg
 viewPage model me =
     case model.route of
         Root ->
-            Html.map RootMsg (RootPage.view me)
+            RootPage.view me
 
         Users ->
             Html.map UsersMsg

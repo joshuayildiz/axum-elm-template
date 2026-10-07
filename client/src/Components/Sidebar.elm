@@ -1,7 +1,8 @@
 module Components.Sidebar exposing (view)
 
-import Html exposing (Html, a, aside, div, nav, span, text)
+import Html exposing (Html, a, aside, button, div, nav, span, text)
 import Html.Attributes exposing (class, href)
+import Html.Events exposing (onClick)
 import Icons
 
 
@@ -27,29 +28,64 @@ tabs =
 {-| Render the sidebar. It shows only the tabs the user is allowed to see, and
 marks the tab for the current path as active.
 -}
-view : { permissions : List String, activePath : String, name : Maybe String, email : String } -> Html msg
-view { permissions, activePath, name, email } =
+type alias Config msg =
+    { permissions : List String
+    , activePath : String
+    , name : Maybe String
+    , email : String
+    , menuOpen : Bool
+    , onToggleMenu : msg
+    , onLogout : msg
+    }
+
+
+view : Config msg -> Html msg
+view config =
     aside [ class "flex w-52 shrink-0 flex-col gap-5 border-r border-zinc-200/70 bg-white/60 p-3" ]
         [ brand
         , nav [ class "flex flex-1 flex-col gap-0.5 overflow-y-auto" ]
-            (caption "Menu" :: List.filterMap (viewTab permissions activePath) tabs)
-        , viewUser name email
+            (caption "Menu" :: List.filterMap (viewTab config.permissions config.activePath) tabs)
+        , viewUser config
         ]
 
 
-viewUser : Maybe String -> String -> Html msg
-viewUser name email =
-    div [ class "mt-auto flex flex-col gap-0.5 border-t border-zinc-200/70 px-2 pt-3" ]
-        [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ]
-            [ text "Signed in as" ]
-        , span [ class "truncate text-[13px] font-medium text-zinc-800" ]
-            [ text (Maybe.withDefault email name) ]
-        , case name of
-            Just _ ->
-                span [ class "truncate text-[11px] text-zinc-400" ] [ text email ]
+viewUser : Config msg -> Html msg
+viewUser config =
+    div [ class "relative mt-auto border-t border-zinc-200/70 pt-3" ]
+        [ button
+            [ onClick config.onToggleMenu
+            , class "flex w-full flex-col gap-0.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-zinc-100"
+            ]
+            [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ]
+                [ text "Signed in as" ]
+            , span [ class "truncate text-[13px] font-medium text-zinc-800" ]
+                [ text (Maybe.withDefault config.email config.name) ]
+            , case config.name of
+                Just _ ->
+                    span [ class "truncate text-[11px] text-zinc-400" ] [ text config.email ]
 
-            Nothing ->
-                text ""
+                Nothing ->
+                    text ""
+            ]
+        , if config.menuOpen then
+            viewMenu config.onToggleMenu config.onLogout
+
+          else
+            text ""
+        ]
+
+
+viewMenu : msg -> msg -> Html msg
+viewMenu onToggleMenu onLogout =
+    div []
+        [ div [ class "fixed inset-0 z-40", onClick onToggleMenu ] []
+        , div [ class "absolute bottom-full left-0 z-50 mb-1 w-full rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" ]
+            [ button
+                [ onClick onLogout
+                , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+                ]
+                [ Icons.logOut, text "Log out" ]
+            ]
         ]
 
 
