@@ -28,18 +28,6 @@ resultDecoder errDecoder okDecoder =
         ]
 
 
-type alias HelloResponse =
-    { message : String
-    }
-
-
-helloResponseEncoder : HelloResponse -> Json.Encode.Value
-helloResponseEncoder struct =
-    Json.Encode.object
-        [ ( "message", Json.Encode.string struct.message )
-        ]
-
-
 type alias LoginRequest =
     { email : String
     , password : String
@@ -123,7 +111,6 @@ type alias CreateUser =
     { email : String
     , password : String
     , name : Maybe String
-    , isAdmin : Bool
     }
 
 
@@ -133,7 +120,6 @@ createUserEncoder struct =
         [ ( "email", Json.Encode.string struct.email )
         , ( "password", Json.Encode.string struct.password )
         , ( "name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) struct.name )
-        , ( "is_admin", Json.Encode.bool struct.isAdmin )
         ]
 
 
@@ -495,12 +481,6 @@ rolePageEncoder struct =
         ]
 
 
-helloResponseDecoder : Json.Decode.Decoder HelloResponse
-helloResponseDecoder =
-    Json.Decode.succeed HelloResponse
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "message" Json.Decode.string))
-
-
 loginRequestDecoder : Json.Decode.Decoder LoginRequest
 loginRequestDecoder =
     Json.Decode.succeed LoginRequest
@@ -581,7 +561,6 @@ createUserDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "email" Json.Decode.string))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "password" Json.Decode.string))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.nullable Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "is_admin" Json.Decode.bool))
 
 
 createRoleDecoder : Json.Decode.Decoder CreateRole

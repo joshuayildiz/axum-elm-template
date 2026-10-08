@@ -7,7 +7,6 @@ module Api exposing
     , deleteUser
     , errorToString
     , getConfig
-    , getHello
     , getMe
     , getRolePermissions
     , getUserPermissions
@@ -38,7 +37,6 @@ import Api.Types
         , ChangePassword
         , CreateRole
         , CreateUser
-        , HelloResponse
         , LoginRequest
         , LoginResponse
         , MeResponse
@@ -61,7 +59,6 @@ import Api.Types
         , changePasswordEncoder
         , createRoleEncoder
         , createUserEncoder
-        , helloResponseDecoder
         , loginRequestEncoder
         , loginResponseDecoder
         , meResponseDecoder
@@ -88,14 +85,6 @@ import Http
 import I18n exposing (T)
 import Json.Decode as Decode
 import Url.Builder
-
-
-getHello : (Result Http.Error HelloResponse -> msg) -> Cmd msg
-getHello toMsg =
-    Http.get
-        { url = "/api/v1/hello"
-        , expect = Http.expectJson toMsg helloResponseDecoder
-        }
 
 
 getConfig : (Result Http.Error PublicConfig -> msg) -> Cmd msg

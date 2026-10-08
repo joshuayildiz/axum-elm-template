@@ -1,55 +1,37 @@
 # axum-elm-template
 
-Batteries included Rust/Elm template/framework
+A full-stack web template with a Rust server and an Elm client that share one set of
+types.
 
-## Prerequisites
+Build your product on a Rust (Axum) API and an Elm single-page client. The types are
+checked across the whole stack, from the database to the client. sqlx checks every
+query against the real database schema when the server compiles, and the Rust API
+types are generated into Elm, so the client stops compiling the moment it drifts from
+the server. A change to a database column can surface as an Elm type error. Sign-in,
+access control, settings, theming, and tracing are already built, so you start on
+your own features.
 
-- [rust & cargo](https://rustup.rs)
-- [elm](https://guide.elm-lang.org/install/elm.html)
-- [elm-format](https://github.com/avh4/elm-format)
-- [tailwindcss](https://tailwindcss.com)
-- [terser](https://github.com/terser/terser)
-- [node & npm](https://nodejs.org)
-- [zig](https://ziglang.org)
-- [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild)
-- [cargo-watch](https://github.com/watchexec/cargo-watch)
-- [postgres](https://www.postgresql.org)
-- [dekit](https://github.com/pvolok/dekit)
-- [make](https://www.gnu.org/software/make/)
+## Features
 
-## Configuration
+- Types checked from the database schema to the Elm client, all at compile time.
+- Email and password sign-in, with optional two-factor codes.
+- Role-based access control, edited from the admin screens.
+- Self-service sign-up that an admin turns on or off at runtime.
+- A settings screen backed by the database.
+- Light and dark themes from one set of color tokens.
+- English and Turkish, enforced at compile time.
+- Live presence and a broadcast feed over a websocket.
+- Request tracing to Honeycomb, SigNoz, or any OpenTelemetry backend.
 
-The server reads its settings from environment variables. Copy the example file
-and edit the values.
+## Get started
 
-```sh
-cp server/.env.example server/.env
-```
+Follow the [quickstart](docs/001-quickstart.md). The full documentation lives in
+[docs/](docs/000-index.md).
 
-Set these keys in `server/.env`:
+## Built with
 
-- `DATABASE_URL`: the Postgres connection string, for example
-  `postgres://user@localhost/axum_elm_template`.
-- `JWT_SECRET`: the secret that signs the session tokens. Use a long random value.
-- `ENABLE_REGISTRATION`: set to `true` to open sign-ups, or leave it out to keep
-  them closed.
-
-Create the database before you start the server. The server runs the migrations
-on start-up.
-
-```sh
-createdb axum_elm_template
-```
-
-## Development
-
-```sh
-make install
-make dev
-```
-
-## Git Hooks
-
-```sh
-git config core.hooksPath .githooks
-```
+- Rust and Axum
+- Elm
+- Tailwind CSS
+- PostgreSQL with sqlx
+- OpenTelemetry

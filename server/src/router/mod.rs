@@ -4,7 +4,7 @@ pub(crate) mod settings;
 pub(crate) mod users;
 pub(crate) mod ws;
 
-use crate::api::{HelloResponse, PublicConfig, ServerMessage};
+use crate::api::{PublicConfig, ServerMessage};
 use axum::Json;
 use axum::extract::State;
 use std::collections::HashMap;
@@ -32,7 +32,6 @@ pub(crate) fn build(state: AppState) -> axum::Router {
     let client = ServeDir::new("client").not_found_service(ServeFile::new("client/index.html"));
 
     Router::new()
-        .route("/api/v1/hello", get(hello))
         .route("/api/v1/config", get(public_config))
         .merge(auth::routes(state.clone()))
         .merge(rbac::routes(state.clone()))
@@ -67,12 +66,6 @@ pub(crate) fn build(state: AppState) -> axum::Router {
                 ),
         )
         .with_state(state)
-}
-
-async fn hello() -> Json<HelloResponse> {
-    Json(HelloResponse {
-        message: "hello".to_string(),
-    })
 }
 
 async fn public_config(State(state): State<AppState>) -> Json<PublicConfig> {

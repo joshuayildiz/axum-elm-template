@@ -98,6 +98,7 @@ type alias T =
 
     -- App chrome (Main)
     , notFound : String
+    , notFoundBody : String
     , goHome : String
 
     -- Sidebar
@@ -233,7 +234,8 @@ en =
     , roles = "Roles"
     , permissions = "Permissions"
     , home = "Home"
-    , notFound = "Not found"
+    , notFound = "Page not found"
+    , notFoundBody = "The page you are looking for does not exist or has moved."
     , goHome = "Go home"
     , menu = "Menu"
     , signedInAs = "Signed in as"
@@ -354,7 +356,8 @@ tr =
     , roles = "Roller"
     , permissions = "İzinler"
     , home = "Ana Sayfa"
-    , notFound = "Bulunamadı"
+    , notFound = "Sayfa bulunamadı"
+    , notFoundBody = "Aradığınız sayfa mevcut değil veya taşınmış."
     , goHome = "Ana sayfaya git"
     , menu = "Menü"
     , signedInAs = "Oturum açan"

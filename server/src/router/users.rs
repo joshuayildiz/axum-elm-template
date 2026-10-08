@@ -117,13 +117,12 @@ async fn create_user(
     let result = sqlx::query!(
         r#"
         insert into users (email, password_hash, name, is_admin)
-        values ($1, $2, $3, $4)
+        values ($1, $2, $3, false)
         returning id::text as "id!", email, name, is_admin
         "#,
         email,
         password_hash,
         name,
-        body.is_admin
     )
     .fetch_one(&state.pool)
     .traced("users.create")

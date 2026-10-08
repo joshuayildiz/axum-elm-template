@@ -7,7 +7,7 @@ import Components.Input as Input
 import Components.Pagination as Pagination
 import Html exposing (Html, button, datalist, div, form, h1, h2, input, label, li, option, p, span, table, tbody, td, text, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, disabled, id, list, placeholder, property, style, title, type_, value)
-import Html.Events exposing (on, onCheck, onClick, onInput, onSubmit, targetValue)
+import Html.Events exposing (on, onClick, onInput, onSubmit, targetValue)
 import Http
 import I18n exposing (T)
 import Icons
@@ -43,7 +43,6 @@ type alias Form =
     , email : String
     , name : String
     , password : String
-    , isAdmin : Bool
     , submitting : Bool
     , error : Maybe Http.Error
     }
@@ -89,7 +88,6 @@ type Msg
     | SetEmail String
     | SetName String
     | SetPassword String
-    | SetAdmin Bool
     | Submit
     | Created (Result Http.Error UserResponse)
 
@@ -100,7 +98,6 @@ emptyForm =
     , email = ""
     , name = ""
     , password = ""
-    , isAdmin = False
     , submitting = False
     , error = Nothing
     }
@@ -347,16 +344,12 @@ update msg model =
         SetPassword password ->
             ( { model | form = { form | password = password } }, Cmd.none )
 
-        SetAdmin isAdmin ->
-            ( { model | form = { form | isAdmin = isAdmin } }, Cmd.none )
-
         Submit ->
             ( { model | form = { form | submitting = True, error = Nothing } }
             , Api.createUser
                 { email = String.trim form.email
                 , password = form.password
                 , name = optional form.name
-                , isAdmin = form.isAdmin
                 }
                 Created
             )
@@ -959,16 +952,6 @@ viewForm t form_ =
             , value = form_.password
             , onInput = SetPassword
             }
-        , label [ class "flex items-center gap-2 text-sm text-muted-foreground" ]
-            [ input
-                [ type_ "checkbox"
-                , checked form_.isAdmin
-                , onCheck SetAdmin
-                , class "h-4 w-4 accent-primary"
-                ]
-                []
-            , text t.admin
-            ]
         , viewError t form_.error
         , Button.primary [ type_ "submit", disabled form_.submitting ]
             [ text

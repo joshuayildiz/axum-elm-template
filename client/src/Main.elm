@@ -9,7 +9,7 @@ import Components.Account as Account
 import Components.LangSwitcher as LangSwitcher
 import Components.Sidebar as Sidebar
 import Components.ThemeSwitcher as ThemeSwitcher
-import Html exposing (Html, a, div, h1, p, text)
+import Html exposing (Html, a, div, h1, p, span, text)
 import Html.Attributes exposing (class, href)
 import Http
 import I18n exposing (Lang, T)
@@ -67,12 +67,6 @@ type alias Flags =
     { language : String, theme : String, height : Float }
 
 
-{-| One broadcast line, as shown in the home-page log.
--}
-type alias ChatLine =
-    { from : String, text : String }
-
-
 type Route
     = Root
     | Login
@@ -105,9 +99,8 @@ type alias Model =
     , account : Maybe Account.Model
     , online : Set String
     , draft : String
-    , messages : List ChatLine
-    , companyName : String
-    , registrationEnabled : Bool
+    , messages : List { from : String, text : String }
+    , config : PublicConfig
     }
 
 
@@ -165,8 +158,7 @@ init flags url key =
       , online = Set.empty
       , draft = ""
       , messages = []
-      , companyName = ""
-      , registrationEnabled = False
+      , config = { companyName = "", registrationEnabled = False }
       }
     , Cmd.batch [ Api.getMe GotMe, Api.getConfig GotConfig ]
     )
@@ -367,7 +359,7 @@ update msg model =
             ( next, Cmd.batch [ guard next, enter next, socketCmd ] )
 
         GotConfig (Ok config) ->
-            ( { model | companyName = config.companyName, registrationEnabled = config.registrationEnabled }, Cmd.none )
+            ( { model | config = config }, Cmd.none )
 
         GotConfig (Err _) ->
             ( model, Cmd.none )
@@ -609,10 +601,10 @@ viewShell t model =
                 model.theme
                 [ case model.route of
                     Login ->
-                        Html.map LoginMsg (Login.view t model.companyName model.registrationEnabled model.login)
+                        Html.map LoginMsg (Login.view t model.config.companyName model.config.registrationEnabled model.login)
 
                     Register ->
-                        Html.map RegisterMsg (Register.view t model.companyName model.register)
+                        Html.map RegisterMsg (Register.view t model.config.companyName model.register)
 
                     _ ->
                         viewLoading t
@@ -724,11 +716,15 @@ viewLoading t =
 
 viewNotFound : T -> Html Msg
 viewNotFound t =
-    div [ class "flex flex-col items-center gap-3" ]
-        [ h1 [ class "text-lg font-semibold tracking-tight text-foreground" ] [ text t.notFound ]
+    div [ class "flex flex-1 flex-col items-center justify-center gap-5 py-16 text-center" ]
+        [ span [ class "text-7xl font-bold tracking-tight text-muted-foreground/30" ] [ text "404" ]
+        , div [ class "flex flex-col gap-1.5" ]
+            [ h1 [ class "text-lg font-semibold tracking-tight text-foreground" ] [ text t.notFound ]
+            , p [ class "max-w-xs text-[13px] text-muted-foreground" ] [ text t.notFoundBody ]
+            ]
         , a
             [ href "/"
-            , class "text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground"
+            , class "rounded-lg bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             ]
             [ text t.goHome ]
         ]

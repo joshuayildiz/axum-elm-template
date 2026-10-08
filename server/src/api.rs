@@ -5,14 +5,14 @@ use std::io;
 pub(crate) fn genelm() -> io::Result<()> {
     let mut buf = Vec::new();
     elm_rs::export!("Api.Types", &mut buf, {
-        encoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
+        encoders: [LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
                    TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
                    SettingsBody, PublicConfig, RegisterRequest, RegistrationError,
                    UserPage, RolePage],
-        decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
+        decoders: [LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
@@ -26,11 +26,6 @@ pub(crate) fn genelm() -> io::Result<()> {
         String::from_utf8(buf).expect("error decoding Elm output as UTF-8")
     );
     Ok(())
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
-pub(crate) struct HelloResponse {
-    pub(crate) message: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
@@ -112,7 +107,6 @@ pub(crate) struct CreateUser {
     pub(crate) email: String,
     pub(crate) password: String,
     pub(crate) name: Option<String>,
-    pub(crate) is_admin: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]

@@ -34,7 +34,7 @@ dev:
 	dekit up && dekit attach
 
 .PHONY: release
-release: client migrations;
+release: client;
 
 .PHONY: client ## builds client
 client: genelm
@@ -57,12 +57,6 @@ server:
 	cd server && cargo zigbuild --release --target $(TARGET)
 	mkdir -p target
 	cp server/target/$(TARGET)/release/server target/server
-
-
-.PHONY: migrations ## packs database migrations
-migrations:
-	mkdir -p target
-	rm -rf target/migrations && cp -r server/migrations target/migrations
 
 .PHONY: install ## installs client dev dependencies
 install:
