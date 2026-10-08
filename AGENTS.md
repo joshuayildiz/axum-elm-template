@@ -41,6 +41,9 @@ over HTTP. The two share their API types through code generated from the Rust ty
 - Shared API types: define each type once in `server/src/api.rs`, add its name to
   both lists in `genelm`, and regenerate. Every generated enum constructor name must
   be unique across all types, because they share one Elm module.
+- Migrations: name new migration files with a timestamp prefix. Run
+  `cd server && sqlx migrate add -r --timestamp <name>`. A timestamp prefix keeps a
+  downstream project's migrations from colliding with the template's.
 - Client colors: use the theme tokens such as `primary`, `muted`, and `border`, not
   raw Tailwind palette classes. See `docs/008-frontend.md`.
 - Documentation: write it in plain English in the spirit of ASD-STE100. Use short

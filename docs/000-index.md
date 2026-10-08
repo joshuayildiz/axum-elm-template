@@ -26,3 +26,5 @@ client.
   presence.
 - [Telemetry](009-telemetry.md): request tracing, the exported data, and tail
   sampling.
+- [Building on the template](010-building-on-the-template/000-index.md): start a new
+  project and take later template updates.
