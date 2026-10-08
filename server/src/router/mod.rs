@@ -25,6 +25,7 @@ pub(crate) struct AppState {
 pub(crate) fn build(state: AppState) -> axum::Router {
     use axum::Router;
     use axum::routing::get;
+    use tower_http::catch_panic::CatchPanicLayer;
     use tower_http::services::{ServeDir, ServeFile};
 
     let client = ServeDir::new("client").not_found_service(ServeFile::new("client/index.html"));
@@ -38,6 +39,7 @@ pub(crate) fn build(state: AppState) -> axum::Router {
         .merge(users::routes(state.clone()))
         .merge(ws::routes(state.clone()))
         .fallback_service(client)
+        .layer(CatchPanicLayer::new())
         .with_state(state)
 }
 

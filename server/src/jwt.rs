@@ -20,7 +20,7 @@ pub(crate) fn sign_pending_token(user_id: &str, secret: &str) -> String {
 fn sign(user_id: &str, secret: &str, ttl_seconds: usize, totp_pending: bool) -> String {
     let exp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("clock is after the epoch")
+        .expect("error reading system clock")
         .as_secs() as usize
         + ttl_seconds;
 

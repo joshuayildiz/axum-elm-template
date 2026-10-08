@@ -603,7 +603,7 @@ viewDeleteButton t =
 
 viewDeleteModal : T -> String -> Html Msg
 viewDeleteModal t name =
-    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 p-4" ]
+    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" ]
         [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-lg" ]
             [ h2 [ class "text-sm font-semibold text-foreground" ] [ text t.deleteRole ]
             , p [ class "text-[13px] text-muted-foreground" ]

@@ -18,7 +18,7 @@ serde_json = "1.0.151"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "migrate", "macros", "uuid"] }
 tokio = { version = "1.53.1", features = ["macros", "net", "rt", "sync"] }
 totp-rs = { version = "6.0.0", features = ["qr", "gen_secret"] }
-tower-http = { version = "0.7.1", features = ["fs"] }
+tower-http = { version = "0.7.1", features = ["catch-panic", "fs"] }
 uuid = { version = "1.26.1", features = ["serde"] }
 
 [profile.release]

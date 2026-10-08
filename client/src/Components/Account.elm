@@ -209,7 +209,7 @@ update msg model =
 view : T -> Model -> Html Msg
 view t model =
     div [ class "fixed inset-0 z-50 flex items-center justify-center p-4" ]
-        [ div [ class "absolute inset-0 bg-foreground/20", onClick Dismiss ] []
+        [ div [ class "absolute inset-0 bg-black/50", onClick Dismiss ] []
         , div [ class "relative z-10 flex w-full max-w-md flex-col gap-5 rounded-2xl border border-border bg-card p-6 shadow-xl" ]
             [ viewHeader t
             , viewTabs t model.tab
