@@ -108,5 +108,9 @@ pub(crate) async fn require_auth(
     let response = next.run(request).await;
 
     let token = crate::jwt::sign_token(&user.id, &state.jwt_secret);
-    (jar.add(super::token_cookie(token)), response).into_response()
+    (
+        jar.add(super::token_cookie(token, state.secure_cookies)),
+        response,
+    )
+        .into_response()
 }

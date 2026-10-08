@@ -55,6 +55,12 @@ over HTTP. The two share their API types through code generated from the Rust ty
 - An administrator is created only by the CLI `register` command. The API and the
   sign-up page never create one.
 - A panic in a handler becomes a 500 response, and the server stays up.
+- `DEPLOY_ENV` is required. It must be one of `local`, `development`, `staging`, or
+  `production`. The value `local` serves the session cookie over plain HTTP. Every
+  other value marks the cookie `Secure`.
+- The health endpoint is `GET /api/v1/health`. It returns 200 with no body and needs
+  no auth, so a reverse proxy can poll it. The repository root holds
+  `Caddyfile.example`.
 
 ## Before you finish
 

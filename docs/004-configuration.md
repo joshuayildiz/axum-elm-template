@@ -12,7 +12,7 @@ This page explains each variable and why the server needs it.
 
 ## Required
 
-The server does not start without these two.
+The server does not start without these three.
 
 - `DATABASE_URL`: the Postgres connection string. The server keeps every user,
   role, and setting in Postgres, so it has no data without a database.
@@ -20,16 +20,24 @@ The server does not start without these two.
   token with this value and later accepts a token only because its signature
   matches. Use a long random value, because anyone who learns it can forge a valid
   session.
+- `DEPLOY_ENV`: the deployment environment. It must be one of `local`,
+  `development`, `staging`, or `production`. It does two things. It tags every
+  trace, so you can tell production traffic from staging in the backend. It also
+  controls the `Secure` flag on the session cookie. The value `local` serves the
+  cookie over plain HTTP, so local development works. Every other value marks the
+  cookie `Secure`, so the browser sends it over HTTPS only. Use `local` on your
+  machine and `production` on a live server behind TLS.
 
 ## Optional
 
 These have a default, or they only add detail to traces.
 
+- `HOST`: the address the server binds to. The default is `127.0.0.1`, so the server
+  accepts connections only from the same machine. This is what you want behind a
+  reverse proxy on the same host. Set it to `0.0.0.0` only when the server must
+  accept connections from other machines directly.
 - `PORT`: the port the server listens on. The default is 3000. Set it when another
   program already uses that port.
-- `DEPLOY_ENV`: the deployment environment. It tags every trace, so you can tell
-  production traffic from staging in the backend. It must be one of `local`,
-  `development`, `staging`, or `production`.
 - `HOSTNAME`: the host name on traces. It tells you which machine produced a trace
   when you run more than one.
 

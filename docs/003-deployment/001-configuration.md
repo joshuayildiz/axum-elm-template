@@ -9,10 +9,14 @@ meaning, see the main [Configuration](../004-configuration.md) page.
 - `DATABASE_URL`: the connection string for the production Postgres database.
 - `JWT_SECRET`: a long random secret that signs session tokens. Generate a fresh
   value for production, and do not reuse the development secret.
+- `HOST`: the address the server binds to. The default is `127.0.0.1`, so only the
+  reverse proxy on the same host reaches it. Leave it at the default unless the proxy
+  runs on another machine.
 - `PORT`: the port the server listens on. The default is 3000. Set it to match the
   reverse proxy in front of the server.
-- `DEPLOY_ENV`: the deployment environment. Set it to `production`, so every trace
-  carries the right environment.
+- `DEPLOY_ENV`: the deployment environment. Set it to `production`. It marks the
+  session cookie `Secure`, so the browser sends it over HTTPS only. It also tags
+  every trace with the environment. The server does not start without it.
 
 ## Tracing
 

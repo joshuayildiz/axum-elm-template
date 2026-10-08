@@ -151,7 +151,7 @@ async fn login(
         tracing::info!(auth.outcome = "totp_required", email = %body.email);
         let pending = crate::jwt::sign_pending_token(&row.id, &state.jwt_secret);
         return (
-            jar.add(token_cookie(pending)),
+            jar.add(token_cookie(pending, state.secure_cookies)),
             Json(Ok(LoginResponse::TotpRequired)),
         );
     }
@@ -348,10 +348,11 @@ async fn logout(jar: CookieJar) -> (CookieJar, StatusCode) {
     (jar.remove(removal), StatusCode::NO_CONTENT)
 }
 
-fn token_cookie(token: String) -> Cookie<'static> {
+fn token_cookie(token: String, secure: bool) -> Cookie<'static> {
     Cookie::build(("token", token))
         .http_only(true)
         .same_site(SameSite::Lax)
+        .secure(secure)
         .path("/")
         .build()
 }
@@ -383,7 +384,10 @@ async fn finish_login(
 }
 
 fn token_cookie_for(state: &AppState, id: &str) -> Cookie<'static> {
-    token_cookie(crate::jwt::sign_token(id, &state.jwt_secret))
+    token_cookie(
+        crate::jwt::sign_token(id, &state.jwt_secret),
+        state.secure_cookies,
+    )
 }
 
 fn parse_id(id: &str) -> Uuid {

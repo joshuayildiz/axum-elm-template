@@ -79,12 +79,10 @@ fn build_provider(config: &Config) -> Option<SdkTracerProvider> {
         resource = resource.with_attribute(opentelemetry::KeyValue::new("host.name", host.clone()));
     }
 
-    if let Some(environment) = telemetry.environment {
-        resource = resource.with_attribute(opentelemetry::KeyValue::new(
-            "deployment.environment",
-            environment.as_str(),
-        ));
-    }
+    resource = resource.with_attribute(opentelemetry::KeyValue::new(
+        "deployment.environment",
+        config.environment.as_str(),
+    ));
 
     let resource = resource.build();
 

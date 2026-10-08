@@ -1,13 +1,13 @@
 pub(crate) struct Config {
     pub(crate) database_url: String,
     pub(crate) jwt_secret: String,
+    pub(crate) environment: Environment,
     pub(crate) telemetry: Option<TelemetryConfig>,
 }
 
 pub(crate) struct TelemetryConfig {
     pub(crate) endpoint: String,
     pub(crate) service_name: String,
-    pub(crate) environment: Option<Environment>,
     pub(crate) host_name: Option<String>,
     pub(crate) sample_ratio: f64,
 }
@@ -30,6 +30,10 @@ impl Environment {
         }
     }
 
+    pub(crate) fn is_secure(self) -> bool {
+        !matches!(self, Environment::Local)
+    }
+
     fn parse(value: &str) -> Option<Environment> {
         match value.trim().to_ascii_lowercase().as_str() {
             "local" => Some(Environment::Local),
@@ -46,9 +50,21 @@ impl Config {
         Config {
             database_url: std::env::var("DATABASE_URL").expect("error reading DATABASE_URL"),
             jwt_secret: std::env::var("JWT_SECRET").expect("error reading JWT_SECRET"),
+            environment: environment_from_env(),
             telemetry: telemetry_from_env(),
         }
     }
+}
+
+fn environment_from_env() -> Environment {
+    let value = non_empty("DEPLOY_ENV").expect(
+        "error reading DEPLOY_ENV, which must be one of: local, development, staging, production",
+    );
+    Environment::parse(&value).unwrap_or_else(|| {
+        panic!(
+            "error parsing DEPLOY_ENV '{value}', expected one of: local, development, staging, production"
+        )
+    })
 }
 
 fn telemetry_from_env() -> Option<TelemetryConfig> {
@@ -60,13 +76,6 @@ fn telemetry_from_env() -> Option<TelemetryConfig> {
     Some(TelemetryConfig {
         endpoint,
         service_name,
-        environment: non_empty("DEPLOY_ENV").map(|value| {
-            Environment::parse(&value).unwrap_or_else(|| {
-                panic!(
-                    "error parsing DEPLOY_ENV '{value}', expected one of: local, development, staging, production"
-                )
-            })
-        }),
         host_name: non_empty("HOSTNAME"),
         sample_ratio: non_empty("OTEL_TRACES_SAMPLER_ARG")
             .expect(

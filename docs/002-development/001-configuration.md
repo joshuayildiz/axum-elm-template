@@ -16,6 +16,11 @@ Set `DATABASE_URL` to the connection string for your local Postgres database, fo
 example `postgres://you@localhost/axum_elm_template`. Set `JWT_SECRET` to any
 non-empty value for local development, and do not reuse that value in production.
 
+The example file sets `DEPLOY_ENV=local`. Keep that value. It serves the session
+cookie over plain HTTP, so sign-in works on `http://localhost`. A value other than
+`local` marks the cookie `Secure`, and the browser then drops it on plain HTTP, so
+you can no longer sign in during local development.
+
 ## What to leave alone
 
 Leave `PORT` unset. The server listens on 3000, and elm-watch serves the app on 8000

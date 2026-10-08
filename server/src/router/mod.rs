@@ -15,6 +15,7 @@ use tokio::sync::broadcast;
 pub(crate) struct AppState {
     pub(crate) pool: sqlx::PgPool,
     pub(crate) jwt_secret: Arc<str>,
+    pub(crate) secure_cookies: bool,
     // Open websocket connections per user id. A count, not a flag, so many tabs
     // for one user read as one online user.
     pub(crate) presence: Arc<Mutex<HashMap<String, usize>>>,
@@ -32,6 +33,7 @@ pub(crate) fn build(state: AppState) -> axum::Router {
     let client = ServeDir::new("client").not_found_service(ServeFile::new("client/index.html"));
 
     Router::new()
+        .route("/api/v1/health", get(health))
         .route("/api/v1/config", get(public_config))
         .merge(auth::routes(state.clone()))
         .merge(rbac::routes(state.clone()))
@@ -66,6 +68,10 @@ pub(crate) fn build(state: AppState) -> axum::Router {
                 ),
         )
         .with_state(state)
+}
+
+async fn health() -> axum::http::StatusCode {
+    axum::http::StatusCode::OK
 }
 
 async fn public_config(State(state): State<AppState>) -> Json<PublicConfig> {

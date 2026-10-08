@@ -1,0 +1,59 @@
+# Example Caddyfile for the axum-elm-template server.
+#
+# The server serves both the API and the client on one port (3000 by default).
+# Caddy terminates TLS, adds security headers, rate limits, and reverse-proxies
+# everything to the server.
+#
+# Copy this to `Caddyfile`, replace example.com with your domain, and point
+# `reverse_proxy` at the host and port where the server runs.
+
+{
+	# Needed only for the rate_limit directive below. Remove with that block.
+	order rate_limit before basicauth
+}
+
+example.com {
+	encode gzip zstd
+
+	# Security headers. HSTS tells browsers to use HTTPS only.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Rate limit the sign-in and sign-up routes.
+	# Needs the caddy-ratelimit plugin:
+	#   xcaddy build --with github.com/mholt/caddy-ratelimit
+	# Remove this block if you build plain Caddy without the plugin.
+	@auth path /api/v1/auth/*
+	rate_limit @auth {
+		zone auth {
+			key {remote_host}
+			events 10
+			window 1m
+		}
+	}
+
+	# Normal traffic. Caddy polls the health endpoint and marks the server down
+	# when it stops answering.
+	reverse_proxy localhost:3000 {
+		health_uri /api/v1/health
+		health_interval 10s
+		health_timeout 2s
+	}
+
+	# When the server is down, reverse_proxy returns 502 or 503. Serve the
+	# maintenance page for those codes instead of a raw error. This covers both
+	# a crash and a planned deploy, because the health check fails either way.
+	# Put maintenance.html in /srv/maintenance.
+	handle_errors 502 503 504 {
+		root * /srv/maintenance
+		rewrite * /maintenance.html
+		header Retry-After "120"
+		file_server {
+			status 503
+		}
+	}
+}
