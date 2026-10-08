@@ -1,4 +1,5 @@
 use crate::api::{SettingInfo, SettingKind};
+use crate::telemetry::Traced;
 use sqlx::PgPool;
 use std::collections::HashMap;
 
@@ -15,6 +16,7 @@ pub(crate) fn definition(name: &str) -> Option<&'static Definition> {
 pub(crate) async fn get(pool: &PgPool, name: &str) -> String {
     let row = sqlx::query!("select value from settings where name = $1", name)
         .fetch_optional(pool)
+        .traced("settings.get")
         .await
         .expect("error reading setting");
 
@@ -33,6 +35,7 @@ pub(crate) async fn get_bool(pool: &PgPool, name: &str) -> bool {
 pub(crate) async fn all(pool: &PgPool) -> Vec<SettingInfo> {
     let rows = sqlx::query!("select name, value from settings")
         .fetch_all(pool)
+        .traced("settings.all")
         .await
         .expect("error reading settings");
 
@@ -63,6 +66,7 @@ pub(crate) async fn set(pool: &PgPool, name: &str, value: &str) {
         value
     )
     .execute(pool)
+    .traced("settings.set")
     .await
     .expect("error writing setting");
 }

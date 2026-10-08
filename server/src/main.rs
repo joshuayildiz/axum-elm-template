@@ -6,6 +6,7 @@ mod pagination;
 mod rbac;
 mod router;
 mod settings;
+mod telemetry;
 
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
@@ -15,8 +16,11 @@ use std::io;
 async fn main() -> io::Result<()> {
     dotenvy::dotenv().ok();
     let config = config::Config::from_env();
+    let provider = telemetry::init(&config);
     let pool = connect(&config.database_url).await;
-    cmd::cmd(config, pool).await
+    let result = cmd::cmd(config, pool).await;
+    telemetry::shutdown(provider);
+    result
 }
 
 async fn connect(database_url: &str) -> PgPool {

@@ -27,6 +27,7 @@ pub(crate) fn build(state: AppState) -> axum::Router {
     use axum::routing::get;
     use tower_http::catch_panic::CatchPanicLayer;
     use tower_http::services::{ServeDir, ServeFile};
+    use tower_http::trace::TraceLayer;
 
     let client = ServeDir::new("client").not_found_service(ServeFile::new("client/index.html"));
 
@@ -40,6 +41,31 @@ pub(crate) fn build(state: AppState) -> axum::Router {
         .merge(ws::routes(state.clone()))
         .fallback_service(client)
         .layer(CatchPanicLayer::new())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::extract::Request| {
+                    tracing::info_span!(
+                        "request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        user.id = tracing::field::Empty,
+                        user.email = tracing::field::Empty,
+                        http.status_code = tracing::field::Empty,
+                        otel.status_code = tracing::field::Empty,
+                    )
+                })
+                .on_response(
+                    |response: &axum::response::Response,
+                     _latency: std::time::Duration,
+                     span: &tracing::Span| {
+                        let status = response.status();
+                        span.record("http.status_code", status.as_u16() as i64);
+                        if status.is_server_error() {
+                            span.record("otel.status_code", "ERROR");
+                        }
+                    },
+                ),
+        )
         .with_state(state)
 }
 

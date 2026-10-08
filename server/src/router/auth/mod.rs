@@ -1,3 +1,4 @@
+use crate::telemetry::Traced;
 pub(crate) mod extractors;
 
 use super::AppState;
@@ -42,15 +43,18 @@ async fn register(
     use sqlx::error::ErrorKind;
 
     if !crate::settings::get_bool(&state.pool, crate::settings::REGISTRATION_ENABLED).await {
+        tracing::info!(auth.outcome = "registration_disabled");
         return (jar, Json(Err(RegistrationError::RegistrationDisabled)));
     }
 
     let email = body.email.trim();
     if !email.contains('@') {
+        tracing::info!(auth.outcome = "invalid_email");
         return (jar, Json(Err(RegistrationError::InvalidEmail)));
     }
 
     if body.password.len() < 8 {
+        tracing::info!(auth.outcome = "weak_password", email = %email);
         return (jar, Json(Err(RegistrationError::WeakPassword)));
     }
 
@@ -73,21 +77,26 @@ async fn register(
         name,
     )
     .fetch_one(&state.pool)
+    .traced("auth.register")
     .await;
 
     let row = match result {
         Ok(row) => row,
         Err(sqlx::Error::Database(e)) if e.kind() == ErrorKind::UniqueViolation => {
+            tracing::info!(auth.outcome = "email_taken", email = %email);
             return (jar, Json(Err(RegistrationError::EmailTaken)));
         }
         Err(e) => panic!("error registering user: {e}"),
     };
+
+    tracing::info!(auth.outcome = "registered", email = %row.email);
 
     sqlx::query!(
         "update users set last_login_at = now() where id = $1",
         parse_id(&row.id)
     )
     .execute(&state.pool)
+    .traced("auth.register.touch")
     .await
     .expect("error updating last login time");
 
@@ -117,24 +126,29 @@ async fn login(
         body.email
     )
     .fetch_optional(&state.pool)
+    .traced("auth.login.lookup")
     .await
     .expect("error querying user");
 
     let Some(row) = row else {
         // run the hash anyway, so a missing account answers in the same time
         let _ = verify_password(&body.password, &DUMMY_HASH);
+        tracing::warn!(auth.outcome = "invalid_credentials", email = %body.email);
         return (jar, Json(Err(AuthError::InvalidCredentials)));
     };
 
     if !verify_password(&body.password, &row.password_hash) {
+        tracing::warn!(auth.outcome = "invalid_credentials", email = %body.email);
         return (jar, Json(Err(AuthError::InvalidCredentials)));
     }
 
     if row.deactivated {
+        tracing::warn!(auth.outcome = "account_deactivated", email = %body.email);
         return (jar, Json(Err(AuthError::AccountDeactivated)));
     }
 
     if row.totp_secret.is_some() {
+        tracing::info!(auth.outcome = "totp_required", email = %body.email);
         let pending = crate::jwt::sign_pending_token(&row.id, &state.jwt_secret);
         return (
             jar.add(token_cookie(pending)),
@@ -142,6 +156,7 @@ async fn login(
         );
     }
 
+    tracing::info!(auth.outcome = "authenticated", email = %body.email);
     let user = finish_login(&state, &row.id, row.email, row.name, row.is_admin).await;
     (jar.add(token_cookie_for(&state, &row.id)), Json(Ok(user)))
 }
@@ -173,6 +188,7 @@ async fn login_totp(
         id
     )
     .fetch_optional(&state.pool)
+    .traced("auth.totp.lookup")
     .await
     .expect("error querying user");
 
@@ -193,9 +209,11 @@ async fn login_totp(
         .is_some();
 
     if !valid {
+        tracing::warn!(auth.outcome = "invalid_totp", email = %row.email);
         return (jar, Json(Err(AuthError::InvalidCode)));
     }
 
+    tracing::info!(auth.outcome = "authenticated", email = %row.email);
     let user = finish_login(&state, &row.id, row.email, row.name, row.is_admin).await;
     (jar.add(token_cookie_for(&state, &row.id)), Json(Ok(user)))
 }
@@ -227,6 +245,7 @@ async fn change_password(
 
     let row = sqlx::query!("select password_hash from users where id = $1", id)
         .fetch_one(&state.pool)
+        .traced("auth.password.lookup")
         .await
         .expect("error querying user");
 
@@ -245,6 +264,7 @@ async fn change_password(
         id
     )
     .execute(&state.pool)
+    .traced("auth.password.update")
     .await
     .expect("error updating password");
 
@@ -288,6 +308,7 @@ async fn totp_enable(
         id
     )
     .execute(&state.pool)
+    .traced("auth.totp.enable")
     .await
     .expect("error enabling totp");
 
@@ -303,6 +324,7 @@ async fn totp_disable(
 
     let row = sqlx::query!("select password_hash from users where id = $1", id)
         .fetch_one(&state.pool)
+        .traced("auth.totp.disable.lookup")
         .await
         .expect("error querying user");
 
@@ -312,6 +334,7 @@ async fn totp_disable(
 
     sqlx::query!("update users set totp_secret = null where id = $1", id)
         .execute(&state.pool)
+        .traced("auth.totp.disable")
         .await
         .expect("error disabling totp");
 
@@ -345,6 +368,7 @@ async fn finish_login(
         parse_id(id)
     )
     .execute(&state.pool)
+    .traced("auth.login.touch")
     .await
     .expect("error updating last login time");
 

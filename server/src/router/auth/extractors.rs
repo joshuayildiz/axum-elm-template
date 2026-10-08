@@ -1,5 +1,6 @@
 use crate::api::{AuthError, UserResponse};
 use crate::router::AppState;
+use crate::telemetry::Traced;
 use axum::Json;
 use axum::extract::{FromRequestParts, Request, State};
 use axum::http::request::Parts;
@@ -83,6 +84,7 @@ pub(crate) async fn require_auth(
         id
     )
     .fetch_optional(&state.pool)
+    .traced("auth.current_user")
     .await
     .expect("error querying user");
 
@@ -97,6 +99,10 @@ pub(crate) async fn require_auth(
         is_admin: row.is_admin,
         totp_enabled: row.totp_enabled,
     };
+
+    let span = tracing::Span::current();
+    span.record("user.id", user.id.as_str());
+    span.record("user.email", user.email.as_str());
 
     request.extensions_mut().insert(user.clone());
     let response = next.run(request).await;

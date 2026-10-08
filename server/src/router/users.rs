@@ -3,6 +3,7 @@ use crate::pagination::ListParams;
 use crate::rbac::check::Permissions;
 use crate::router::AppState;
 use crate::router::auth::extractors::require_auth;
+use crate::telemetry::Traced;
 use axum::Json;
 use axum::Router;
 use axum::extract::{Path, Query, State};
@@ -40,6 +41,7 @@ async fn list_users(
         search
     )
     .fetch_one(&state.pool)
+    .traced("users.count")
     .await
     .expect("error counting users");
 
@@ -59,8 +61,17 @@ async fn list_users(
         window.offset,
     )
     .fetch_all(&state.pool)
+    .traced("users.list")
     .await
     .expect("error listing users");
+
+    tracing::info!(
+        page = window.page,
+        per_page = window.per_page,
+        total,
+        returned = rows.len() as i64,
+        searching = search.is_some(),
+    );
 
     Ok(Json(UserPage {
         items: rows
@@ -115,6 +126,7 @@ async fn create_user(
         body.is_admin
     )
     .fetch_one(&state.pool)
+    .traced("users.create")
     .await;
 
     let row = match result {
@@ -143,12 +155,15 @@ async fn delete_user(
 ) -> Result<StatusCode, StatusCode> {
     perms.require(crate::rbac::users::delete::NAME)?;
 
+    tracing::info!(target.user_id = %id);
+
     // Soft delete: the account row stays, other objects keep their links.
     let result = sqlx::query!(
         "update users set deleted_at = now() where id = $1 and deleted_at is null",
         id
     )
     .execute(&state.pool)
+    .traced("users.delete")
     .await
     .expect("error deleting user");
 
@@ -175,6 +190,7 @@ async fn get_user(
         id
     )
     .fetch_optional(&state.pool)
+    .traced("users.get")
     .await
     .expect("error querying user");
 

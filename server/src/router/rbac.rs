@@ -3,6 +3,7 @@ use crate::pagination::ListParams;
 use crate::rbac::check::Permissions;
 use crate::router::AppState;
 use crate::router::auth::extractors::require_auth;
+use crate::telemetry::Traced;
 use axum::Json;
 use axum::Router;
 use axum::extract::{Path, Query, State};
@@ -83,6 +84,7 @@ async fn list_roles(
         search
     )
     .fetch_one(&state.pool)
+    .traced("roles.count")
     .await
     .expect("error counting roles");
 
@@ -101,8 +103,17 @@ async fn list_roles(
         window.offset,
     )
     .fetch_all(&state.pool)
+    .traced("roles.list")
     .await
     .expect("error listing roles");
+
+    tracing::info!(
+        page = window.page,
+        per_page = window.per_page,
+        total,
+        returned = rows.len() as i64,
+        searching = search.is_some(),
+    );
 
     Ok(Json(RolePage {
         items: rows
@@ -128,6 +139,7 @@ async fn list_all_roles(
     let rows =
         sqlx::query!(r#"select id::text as "id!", name, description from roles order by name"#)
             .fetch_all(&state.pool)
+            .traced("roles.list_all")
             .await
             .expect("error listing roles");
 
@@ -162,6 +174,7 @@ async fn create_role(
         description
     )
     .fetch_one(&state.pool)
+    .traced("roles.create")
     .await;
 
     let row = match result {
@@ -213,6 +226,7 @@ async fn update_role(
         id
     )
     .fetch_optional(&state.pool)
+    .traced("roles.update")
     .await;
 
     match result {
@@ -238,6 +252,7 @@ async fn delete_role(
 
     let result = sqlx::query!("delete from roles where id = $1", id)
         .execute(&state.pool)
+        .traced("roles.delete")
         .await
         .expect("error deleting role");
 
@@ -264,6 +279,7 @@ async fn list_role_permissions(
         id
     )
     .fetch_all(&state.pool)
+    .traced("roles.permissions.list")
     .await
     .expect("error listing role permissions");
 
@@ -297,6 +313,7 @@ async fn set_role_permissions(
 
     sqlx::query!("delete from role_permissions where role_id = $1", id)
         .execute(&mut *tx)
+        .traced("roles.permissions.clear")
         .await
         .expect("error clearing role permissions");
 
@@ -308,6 +325,7 @@ async fn set_role_permissions(
             name
         )
         .execute(&mut *tx)
+        .traced("roles.permissions.insert")
         .await
         .expect("error setting role permission");
     }
@@ -339,6 +357,7 @@ async fn list_user_roles(
         id
     )
     .fetch_all(&state.pool)
+    .traced("user.roles.list")
     .await
     .expect("error listing user roles");
 
@@ -375,6 +394,7 @@ async fn list_user_role_permissions(
         id
     )
     .fetch_all(&state.pool)
+    .traced("user.permissions.direct")
     .await
     .expect("error listing user role permissions");
 
@@ -397,6 +417,7 @@ async fn list_user_permissions(
         id
     )
     .fetch_all(&state.pool)
+    .traced("user.role_permissions")
     .await
     .expect("error listing user permissions");
 
@@ -415,6 +436,8 @@ async fn assign_role(
         return Err(StatusCode::UNPROCESSABLE_ENTITY);
     };
 
+    tracing::info!(target.user_id = %user_id, target.role_id = %role_id);
+
     if !user_exists(&state, user_id).await || !role_exists(&state, role_id).await {
         return Err(StatusCode::NOT_FOUND);
     }
@@ -425,6 +448,7 @@ async fn assign_role(
         role_id
     )
     .execute(&state.pool)
+    .traced("user.roles.assign")
     .await
     .expect("error assigning role to user");
 
@@ -443,12 +467,15 @@ async fn remove_role(
         return Err(StatusCode::UNPROCESSABLE_ENTITY);
     };
 
+    tracing::info!(target.user_id = %user_id, target.role_id = %role_id);
+
     sqlx::query!(
         "delete from user_roles where user_id = $1 and role_id = $2",
         user_id,
         role_id
     )
     .execute(&state.pool)
+    .traced("user.roles.remove")
     .await
     .expect("error removing role from user");
 
@@ -482,6 +509,7 @@ async fn set_user_permissions(
 
     sqlx::query!("delete from user_permissions where user_id = $1", user_id)
         .execute(&mut *tx)
+        .traced("user.permissions.clear")
         .await
         .expect("error clearing user permissions");
 
@@ -493,6 +521,7 @@ async fn set_user_permissions(
             name
         )
         .execute(&mut *tx)
+        .traced("user.permissions.insert")
         .await
         .expect("error setting user permission");
     }
@@ -508,6 +537,7 @@ async fn role_exists(state: &AppState, id: Uuid) -> bool {
         id
     )
     .fetch_one(&state.pool)
+    .traced("roles.exists")
     .await
     .expect("error checking role")
 }
@@ -518,6 +548,7 @@ async fn user_exists(state: &AppState, id: Uuid) -> bool {
         id
     )
     .fetch_one(&state.pool)
+    .traced("users.exists")
     .await
     .expect("error checking user")
 }

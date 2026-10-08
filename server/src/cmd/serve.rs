@@ -18,9 +18,18 @@ pub(crate) async fn cmd(config: Config, pool: PgPool) -> io::Result<()> {
     };
     let app = router::build(state);
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    println!("Listening on http://0.0.0.0:3000");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    tracing::info!("listening on http://0.0.0.0:{port}");
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
     Ok(())
+}
+
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("error installing ctrl-c handler");
 }
