@@ -8,6 +8,9 @@ mod router;
 mod settings;
 mod telemetry;
 
+#[cfg(test)]
+mod tests;
+
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use std::io;

@@ -93,3 +93,42 @@ fn non_empty(name: &str) -> Option<String> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Environment;
+
+    #[test]
+    fn parses_known_environments_and_aliases() {
+        assert!(matches!(
+            Environment::parse("local"),
+            Some(Environment::Local)
+        ));
+        assert!(matches!(
+            Environment::parse("dev"),
+            Some(Environment::Development)
+        ));
+        assert!(matches!(
+            Environment::parse("development"),
+            Some(Environment::Development)
+        ));
+        assert!(matches!(
+            Environment::parse("stage"),
+            Some(Environment::Staging)
+        ));
+        assert!(matches!(
+            Environment::parse("  PRODUCTION "),
+            Some(Environment::Production)
+        ));
+        assert!(Environment::parse("nonsense").is_none());
+    }
+
+    #[test]
+    fn local_is_the_only_insecure_environment() {
+        assert!(!Environment::Local.is_secure());
+        assert!(Environment::Development.is_secure());
+        assert!(Environment::Staging.is_secure());
+        assert!(Environment::Production.is_secure());
+        assert_eq!(Environment::Production.as_str(), "production");
+    }
+}

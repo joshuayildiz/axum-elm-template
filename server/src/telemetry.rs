@@ -252,3 +252,94 @@ pub(crate) trait Traced: Future + Sized {
 }
 
 impl<F: Future> Traced for F {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentelemetry::trace::{Span as _, Status, Tracer};
+    use std::sync::Arc;
+
+    #[derive(Clone, Default, Debug)]
+    struct Collector {
+        ended: Arc<Mutex<Vec<SpanData>>>,
+    }
+
+    impl Collector {
+        fn count(&self) -> usize {
+            self.ended
+                .lock()
+                .expect("error locking the collector")
+                .len()
+        }
+    }
+
+    impl SpanProcessor for Collector {
+        fn on_start(&self, _span: &mut Span, _cx: &Context) {}
+
+        fn on_end(&self, span: SpanData) {
+            self.ended
+                .lock()
+                .expect("error locking the collector")
+                .push(span);
+        }
+
+        fn force_flush(&self) -> OTelSdkResult {
+            Ok(())
+        }
+
+        fn shutdown_with_timeout(&self, _timeout: Duration) -> OTelSdkResult {
+            Ok(())
+        }
+
+        fn set_resource(&mut self, _resource: &Resource) {}
+    }
+
+    fn provider(ratio: f64, collector: Collector) -> SdkTracerProvider {
+        SdkTracerProvider::builder()
+            .with_span_processor(TailSampler::new(collector, ratio))
+            .build()
+    }
+
+    #[test]
+    fn keeps_every_trace_when_the_ratio_is_one() {
+        let collector = Collector::default();
+        let provider = provider(1.0, collector.clone());
+        {
+            let tracer = provider.tracer("test");
+            let span = tracer.start("normal");
+            drop(span);
+        }
+        provider
+            .shutdown()
+            .expect("error shutting down the provider");
+        assert_eq!(collector.count(), 1);
+    }
+
+    #[test]
+    fn drops_normal_traffic_but_keeps_errors_when_the_ratio_is_zero() {
+        let dropped = Collector::default();
+        let keep_none = provider(0.0, dropped.clone());
+        {
+            let tracer = keep_none.tracer("test");
+            let span = tracer.start("normal");
+            drop(span);
+        }
+        keep_none
+            .force_flush()
+            .expect("error flushing the provider");
+        assert_eq!(dropped.count(), 0);
+
+        let kept = Collector::default();
+        let keep_errors = provider(0.0, kept.clone());
+        {
+            let tracer = keep_errors.tracer("test");
+            let mut span = tracer.start("boom");
+            span.set_status(Status::error("boom"));
+            span.end();
+        }
+        keep_errors
+            .force_flush()
+            .expect("error flushing the provider");
+        assert_eq!(kept.count(), 1);
+    }
+}

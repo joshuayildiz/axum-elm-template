@@ -16,6 +16,7 @@ Install these tools:
 - [Zig](https://ziglang.org)
 - [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild)
 - [cargo-watch](https://github.com/watchexec/cargo-watch)
+- [cargo-llvm-cov](https://crates.io/crates/cargo-llvm-cov)
 - [PostgreSQL](https://www.postgresql.org)
 - [sqlx-cli](https://crates.io/crates/sqlx-cli)
 - [dekit](https://github.com/pvolok/dekit)

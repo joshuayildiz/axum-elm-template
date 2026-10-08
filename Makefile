@@ -3,6 +3,9 @@ PROJECT=Axum/Elm Template
 OS=darwin
 ARCH=arm64
 
+# Throwaway database for the coverage run. Override to point elsewhere.
+COVERAGE_DATABASE_URL ?= postgres://localhost/axum_elm_template_test
+
 
 # Resolve OS and ARCH
 ARCH_amd64 := x86_64
@@ -66,6 +69,18 @@ install:
 format:
 	cd client && elm-format . --yes
 	cd server && cargo fmt
+
+.PHONY: coverage ## runs server tests with a coverage report
+coverage:
+	createdb axum_elm_template_test 2>/dev/null || true
+	cd server && DATABASE_URL="$(COVERAGE_DATABASE_URL)" sqlx migrate run
+	cd server && \
+		DATABASE_URL="$(COVERAGE_DATABASE_URL)" \
+		JWT_SECRET=coverage-test-secret \
+		DEPLOY_ENV=local \
+		OTEL_EXPORTER_OTLP_ENDPOINT= \
+		cargo llvm-cov --html
+	@echo "Report: server/target/llvm-cov/html/index.html"
 
 .PHONY: clean ## cleans
 clean:

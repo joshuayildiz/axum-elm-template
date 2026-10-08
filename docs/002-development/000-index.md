@@ -34,3 +34,20 @@ git config core.hooksPath .githooks
 ```
 
 See [How it works](002-how-it-works.md) for what the pre-commit hook runs.
+
+## Tests and coverage
+
+Run the server tests with a coverage report:
+
+```sh
+make coverage
+```
+
+The target creates a throwaway database named `axum_elm_template_test`, applies the
+migrations to it, runs the tests, and writes an HTML report to
+`server/target/llvm-cov/html/index.html`. It needs a reachable Postgres, the same as
+a normal build. If your Postgres needs an explicit user, pass the connection string:
+
+```sh
+make coverage COVERAGE_DATABASE_URL=postgres://you@localhost/axum_elm_template_test
+```
