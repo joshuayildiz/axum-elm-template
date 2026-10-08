@@ -459,6 +459,42 @@ registrationErrorEncoder enum =
             Json.Encode.string "WeakPassword"
 
 
+type alias UserPage =
+    { items : List UserResponse
+    , total : Int
+    , page : Int
+    , perPage : Int
+    }
+
+
+userPageEncoder : UserPage -> Json.Encode.Value
+userPageEncoder struct =
+    Json.Encode.object
+        [ ( "items", Json.Encode.list userResponseEncoder struct.items )
+        , ( "total", Json.Encode.int struct.total )
+        , ( "page", Json.Encode.int struct.page )
+        , ( "per_page", Json.Encode.int struct.perPage )
+        ]
+
+
+type alias RolePage =
+    { items : List RoleResponse
+    , total : Int
+    , page : Int
+    , perPage : Int
+    }
+
+
+rolePageEncoder : RolePage -> Json.Encode.Value
+rolePageEncoder struct =
+    Json.Encode.object
+        [ ( "items", Json.Encode.list roleResponseEncoder struct.items )
+        , ( "total", Json.Encode.int struct.total )
+        , ( "page", Json.Encode.int struct.page )
+        , ( "per_page", Json.Encode.int struct.perPage )
+        ]
+
+
 helloResponseDecoder : Json.Decode.Decoder HelloResponse
 helloResponseDecoder =
     Json.Decode.succeed HelloResponse
@@ -809,3 +845,21 @@ registrationErrorDecoder =
                             Json.Decode.fail <| "Unexpected variant " ++ unexpected
                 )
         ]
+
+
+userPageDecoder : Json.Decode.Decoder UserPage
+userPageDecoder =
+    Json.Decode.succeed UserPage
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "items" (Json.Decode.list userResponseDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "total" Json.Decode.int))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "page" Json.Decode.int))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "per_page" Json.Decode.int))
+
+
+rolePageDecoder : Json.Decode.Decoder RolePage
+rolePageDecoder =
+    Json.Decode.succeed RolePage
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "items" (Json.Decode.list roleResponseDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "total" Json.Decode.int))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "page" Json.Decode.int))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "per_page" Json.Decode.int))

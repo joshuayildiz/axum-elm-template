@@ -2,6 +2,7 @@ mod api;
 mod cmd;
 mod config;
 mod jwt;
+mod pagination;
 mod rbac;
 mod router;
 mod settings;

@@ -13,6 +13,7 @@ module Api exposing
     , getUserPermissions
     , getUserRolePermissions
     , getUserRoles
+    , listAllRoles
     , listPermissions
     , listRoles
     , listSettings
@@ -47,12 +48,14 @@ import Api.Types
         , RegisterRequest
         , RegistrationError
         , RoleBody
+        , RolePage
         , RoleResponse
         , SettingInfo
         , SettingsBody
         , TotpConfirm
         , TotpDisable
         , TotpSetup
+        , UserPage
         , UserResponse
         , authErrorDecoder
         , changePasswordEncoder
@@ -70,6 +73,7 @@ import Api.Types
         , registrationErrorDecoder
         , resultDecoder
         , roleBodyEncoder
+        , rolePageDecoder
         , roleResponseDecoder
         , settingInfoDecoder
         , settingsBodyEncoder
@@ -77,11 +81,13 @@ import Api.Types
         , totpConfirmEncoder
         , totpDisableEncoder
         , totpSetupDecoder
+        , userPageDecoder
         , userResponseDecoder
         )
 import Http
 import I18n exposing (T)
 import Json.Decode as Decode
+import Url.Builder
 
 
 getHello : (Result Http.Error HelloResponse -> msg) -> Cmd msg
@@ -171,11 +177,24 @@ getMe toMsg =
         }
 
 
-listUsers : (Result Http.Error (List UserResponse) -> msg) -> Cmd msg
-listUsers toMsg =
+listQuery : { page : Int, perPage : Int, search : String } -> List Url.Builder.QueryParameter
+listQuery params =
+    [ Url.Builder.int "page" params.page
+    , Url.Builder.int "per_page" params.perPage
+    ]
+        ++ (if String.trim params.search == "" then
+                []
+
+            else
+                [ Url.Builder.string "search" params.search ]
+           )
+
+
+listUsers : { page : Int, perPage : Int, search : String } -> (Result Http.Error UserPage -> msg) -> Cmd msg
+listUsers params toMsg =
     Http.get
-        { url = "/api/v1/users"
-        , expect = Http.expectJson toMsg (Decode.list userResponseDecoder)
+        { url = Url.Builder.absolute [ "api", "v1", "users" ] (listQuery params)
+        , expect = Http.expectJson toMsg userPageDecoder
         }
 
 
@@ -255,10 +274,18 @@ listPermissions toMsg =
         }
 
 
-listRoles : (Result Http.Error (List RoleResponse) -> msg) -> Cmd msg
-listRoles toMsg =
+listRoles : { page : Int, perPage : Int, search : String } -> (Result Http.Error RolePage -> msg) -> Cmd msg
+listRoles params toMsg =
     Http.get
-        { url = "/api/v1/rbac/roles"
+        { url = Url.Builder.absolute [ "api", "v1", "rbac", "roles" ] (listQuery params)
+        , expect = Http.expectJson toMsg rolePageDecoder
+        }
+
+
+listAllRoles : (Result Http.Error (List RoleResponse) -> msg) -> Cmd msg
+listAllRoles toMsg =
+    Http.get
+        { url = "/api/v1/rbac/roles/all"
         , expect = Http.expectJson toMsg (Decode.list roleResponseDecoder)
         }
 

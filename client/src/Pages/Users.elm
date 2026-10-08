@@ -1,9 +1,10 @@
 module Pages.Users exposing (Model, Msg, init, load, update, view)
 
 import Api
-import Api.Types exposing (PermissionInfo, RoleResponse, UserResponse)
+import Api.Types exposing (PermissionInfo, RoleResponse, UserPage, UserResponse)
 import Components.Button as Button
 import Components.Input as Input
+import Components.Pagination as Pagination
 import Html exposing (Html, button, datalist, div, form, h1, h2, input, label, li, option, p, span, table, tbody, td, text, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, disabled, id, list, placeholder, property, style, title, type_, value)
 import Html.Events exposing (on, onCheck, onClick, onInput, onSubmit, targetValue)
@@ -55,16 +56,21 @@ type alias Model =
     , selected : Maybe Selection
     , confirmingDelete : Bool
     , search : String
+    , page : Int
+    , perPage : Int
+    , total : Int
     , roleInput : String
     , form : Form
     }
 
 
 type Msg
-    = GotUsers (Result Http.Error (List UserResponse))
+    = GotUsers (Result Http.Error UserPage)
     | GotPermissions (Result Http.Error (List PermissionInfo))
     | GotAllRoles (Result Http.Error (List RoleResponse))
     | SetSearch String
+    | PrevPage
+    | NextPage
     | SetRoleInput String
     | AddRole String
     | RemoveRole String
@@ -108,20 +114,33 @@ init =
     , selected = Nothing
     , confirmingDelete = False
     , search = ""
+    , page = 1
+    , perPage = defaultPerPage
+    , total = 0
     , roleInput = ""
     , form = emptyForm
     }
 
 
+defaultPerPage : Int
+defaultPerPage =
+    25
+
+
+fetchUsers : Int -> Int -> String -> Cmd Msg
+fetchUsers perPage page search =
+    Api.listUsers { page = page, perPage = perPage, search = search } GotUsers
+
+
 {-| Fetch the user list and the permission catalog. The router runs this when
 the page opens.
 -}
-load : Cmd Msg
-load =
+load : Int -> Cmd Msg
+load perPage =
     Cmd.batch
-        [ Api.listUsers GotUsers
+        [ fetchUsers perPage 1 ""
         , Api.listPermissions GotPermissions
-        , Api.listRoles GotAllRoles
+        , Api.listAllRoles GotAllRoles
         ]
 
 
@@ -132,8 +151,26 @@ update msg model =
             model.form
     in
     case msg of
-        GotUsers result ->
-            ( { model | users = fromResult result }, Cmd.none )
+        GotUsers (Ok userPage) ->
+            if List.isEmpty userPage.items && userPage.page > 1 then
+                let
+                    previous =
+                        userPage.page - 1
+                in
+                ( { model | page = previous }, fetchUsers model.perPage previous model.search )
+
+            else
+                ( { model
+                    | users = Loaded userPage.items
+                    , total = userPage.total
+                    , page = userPage.page
+                    , perPage = userPage.perPage
+                  }
+                , Cmd.none
+                )
+
+        GotUsers (Err _) ->
+            ( { model | users = Failed }, Cmd.none )
 
         GotPermissions result ->
             ( { model | permissions = fromResult result }, Cmd.none )
@@ -142,7 +179,21 @@ update msg model =
             ( { model | allRoles = fromResult result }, Cmd.none )
 
         SetSearch query ->
-            ( { model | search = query }, Cmd.none )
+            ( { model | search = query, page = 1 }, fetchUsers model.perPage 1 query )
+
+        PrevPage ->
+            let
+                previous =
+                    max 1 (model.page - 1)
+            in
+            ( { model | page = previous }, fetchUsers model.perPage previous model.search )
+
+        NextPage ->
+            let
+                next =
+                    model.page + 1
+            in
+            ( { model | page = next }, fetchUsers model.perPage next model.search )
 
         SetRoleInput value_ ->
             ( { model | roleInput = value_ }, Cmd.none )
@@ -222,7 +273,7 @@ update msg model =
                     ( { model | confirmingDelete = False }, Cmd.none )
 
         UserDeleted _ ->
-            ( { model | selected = Nothing }, Api.listUsers GotUsers )
+            ( { model | selected = Nothing }, fetchUsers model.perPage model.page model.search )
 
         GotRoles result ->
             ( mapSelection (\s -> { s | roles = fromResult result }) model, Cmd.none )
@@ -311,7 +362,7 @@ update msg model =
             )
 
         Created (Ok _) ->
-            ( { model | form = emptyForm }, Api.listUsers GotUsers )
+            ( { model | form = emptyForm }, fetchUsers model.perPage model.page model.search )
 
         Created (Err error) ->
             ( { model | form = { form | submitting = False, error = Just error } }
@@ -380,18 +431,6 @@ mapSelection f model =
             model
 
 
-matches : String -> UserResponse -> Bool
-matches query user =
-    let
-        needle =
-            String.toLower (String.trim query)
-
-        haystack =
-            String.toLower (user.email ++ " " ++ Maybe.withDefault "" user.name)
-    in
-    needle == "" || String.contains needle haystack
-
-
 
 -- VIEW
 
@@ -433,7 +472,7 @@ view t online caps model =
                 hint t.couldNotLoadUsers
 
             Loaded users ->
-                viewContent t online caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected (List.filter (matches model.search) users)
+                viewContent t online caps model.permissions model.allRoles model.roleInput model.confirmingDelete model.selected model.page model.perPage model.total users
         ]
 
 
@@ -471,10 +510,13 @@ viewSearch t query =
         ]
 
 
-viewContent : T -> Set String -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> List UserResponse -> Html Msg
-viewContent t online caps permissions allRoles roleInput confirmingDelete selected users =
+viewContent : T -> Set String -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Maybe Selection -> Int -> Int -> Int -> List UserResponse -> Html Msg
+viewContent t online caps permissions allRoles roleInput confirmingDelete selected page perPage total users =
     div [ class "flex flex-1 items-start gap-4" ]
-        [ div [ class "min-w-0 flex-1" ] [ viewTable t online selected users ]
+        [ div [ class "flex min-w-0 flex-1 flex-col gap-3" ]
+            [ Pagination.view t { page = page, perPage = perPage, total = total, onPrev = PrevPage, onNext = NextPage }
+            , viewTable t online selected users
+            ]
         , case selected of
             Just selection ->
                 viewDetail t caps permissions allRoles roleInput confirmingDelete selection
@@ -580,7 +622,7 @@ viewDot t isOnline =
 viewDetail : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Selection -> Html Msg
 viewDetail t caps permissions allRoles roleInput confirmingDelete selection =
     div []
-        [ div [ class "w-96 shrink-0 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
+        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewUser selection.user
                     :: (if caps.canReadRoles then

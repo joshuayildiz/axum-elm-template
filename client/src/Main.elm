@@ -3,6 +3,7 @@ port module Main exposing (main)
 import Api
 import Api.Types exposing (AuthError, MeResponse, PublicConfig, ServerMessage(..), clientMessageEncoder, serverMessageDecoder)
 import Browser
+import Browser.Events
 import Browser.Navigation as Nav
 import Components.Account as Account
 import Components.LangSwitcher as LangSwitcher
@@ -56,7 +57,7 @@ port socketMessage : (String -> msg) -> Sub msg
 or the browser language.
 -}
 type alias Flags =
-    { language : String }
+    { language : String, height : Float }
 
 
 {-| One broadcast line, as shown in the home-page log.
@@ -86,6 +87,7 @@ type alias Model =
     , route : Route
     , session : Session
     , lang : Lang
+    , windowHeight : Int
     , login : Login.Model
     , register : Register.Model
     , users : Users.Model
@@ -121,6 +123,7 @@ type Msg
     | SocketMessage String
     | DraftChanged String
     | SendBroadcast
+    | WindowResized Int
 
 
 main : Program Flags Model Msg
@@ -141,6 +144,7 @@ init flags url key =
       , route = toRoute url
       , session = Checking
       , lang = I18n.fromString flags.language
+      , windowHeight = round flags.height
       , login = Login.init
       , register = Register.init
       , users = Users.init
@@ -273,14 +277,14 @@ enter model =
             case ( model.route, routeRequirement model.route ) of
                 ( Users, Just permission ) ->
                     if List.member permission me.permissions then
-                        Cmd.map UsersMsg Users.load
+                        Cmd.map UsersMsg (Users.load (perPageFor model.windowHeight))
 
                     else
                         Cmd.none
 
                 ( Roles, Just permission ) ->
                     if List.member permission me.permissions then
-                        Cmd.map RolesMsg Roles.load
+                        Cmd.map RolesMsg (Roles.load (perPageFor model.windowHeight))
 
                     else
                         Cmd.none
@@ -513,21 +517,32 @@ update msg model =
                 , sendSocket (Encode.encode 0 (clientMessageEncoder (Api.Types.SendBroadcast { text = model.draft })))
                 )
 
+        WindowResized height ->
+            ( { model | windowHeight = height }, Cmd.none )
+
+
+perPageFor : Int -> Int
+perPageFor height =
+    clamp 5 100 ((height - 240) // 38)
+
 
 {-| While signed in, re-check the session every thirty seconds. Each check
 renews the token, so an open tab stays signed in past the one-minute token life.
 -}
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model.session of
-        SignedIn _ ->
-            Sub.batch
-                [ Time.every 30000 (\_ -> Tick)
-                , socketMessage SocketMessage
-                ]
+    Sub.batch
+        [ Browser.Events.onResize (\_ height -> WindowResized height)
+        , case model.session of
+            SignedIn _ ->
+                Sub.batch
+                    [ Time.every 30000 (\_ -> Tick)
+                    , socketMessage SocketMessage
+                    ]
 
-        _ ->
-            Sub.none
+            _ ->
+                Sub.none
+        ]
 
 
 pageTitle : T -> Route -> String
@@ -630,11 +645,10 @@ viewSignedIn t model me =
                 , onToggleMenu = ToggleUserMenu
                 , onLogout = Logout
                 , onSecurity = OpenAccount Account.PasswordTab
+                , langSwitcher = langSwitcher model.lang
                 }
             , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
-                [ div [ class "flex w-full justify-end" ] [ langSwitcher model.lang ]
-                , viewPage t model me
-                ]
+                [ viewPage t model me ]
             ]
         , case model.account of
             Just account ->

@@ -1,10 +1,11 @@
-use crate::api::{CreateUser, UserResponse};
+use crate::api::{CreateUser, UserPage, UserResponse};
+use crate::pagination::ListParams;
 use crate::rbac::check::Permissions;
 use crate::router::AppState;
 use crate::router::auth::extractors::require_auth;
 use axum::Json;
 use axum::Router;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::get;
 use sqlx::error::ErrorKind;
@@ -20,23 +21,50 @@ pub(crate) fn routes(state: AppState) -> Router<AppState> {
 async fn list_users(
     State(state): State<AppState>,
     perms: Permissions,
-) -> Result<Json<Vec<UserResponse>>, StatusCode> {
+    Query(params): Query<ListParams>,
+) -> Result<Json<UserPage>, StatusCode> {
     perms.require(crate::rbac::users::read::NAME)?;
+
+    let window = params.window();
+    let search = window.search.as_deref();
+
+    let total = sqlx::query_scalar!(
+        r#"
+        select count(*) as "count!"
+        from users
+        where deleted_at is null
+          and ($1::text is null
+               or email ilike '%' || $1 || '%'
+               or coalesce(name, '') ilike '%' || $1 || '%')
+        "#,
+        search
+    )
+    .fetch_one(&state.pool)
+    .await
+    .expect("error counting users");
 
     let rows = sqlx::query!(
         r#"
         select id::text as "id!", email, name, is_admin
         from users
         where deleted_at is null
+          and ($1::text is null
+               or email ilike '%' || $1 || '%'
+               or coalesce(name, '') ilike '%' || $1 || '%')
         order by is_admin desc, email
-        "#
+        limit $2 offset $3
+        "#,
+        search,
+        window.limit,
+        window.offset,
     )
     .fetch_all(&state.pool)
     .await
     .expect("error listing users");
 
-    Ok(Json(
-        rows.into_iter()
+    Ok(Json(UserPage {
+        items: rows
+            .into_iter()
             .map(|row| UserResponse {
                 id: row.id,
                 email: row.email,
@@ -44,7 +72,10 @@ async fn list_users(
                 is_admin: row.is_admin,
             })
             .collect(),
-    ))
+        total,
+        page: window.page,
+        per_page: window.per_page,
+    }))
 }
 
 async fn create_user(

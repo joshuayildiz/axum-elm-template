@@ -1,10 +1,11 @@
-use crate::api::{CreateRole, PermissionInfo, PermissionsBody, RoleBody, RoleResponse};
+use crate::api::{CreateRole, PermissionInfo, PermissionsBody, RoleBody, RolePage, RoleResponse};
+use crate::pagination::ListParams;
 use crate::rbac::check::Permissions;
 use crate::router::AppState;
 use crate::router::auth::extractors::require_auth;
 use axum::Json;
 use axum::Router;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{delete, get};
 use sqlx::error::ErrorKind;
@@ -14,6 +15,7 @@ pub(crate) fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/v1/rbac/permissions", get(list_permissions))
         .route("/api/v1/rbac/roles", get(list_roles).post(create_role))
+        .route("/api/v1/rbac/roles/all", get(list_all_roles))
         .route(
             "/api/v1/rbac/roles/{id}",
             delete(delete_role).put(update_role),
@@ -61,6 +63,63 @@ async fn list_permissions(perms: Permissions) -> Result<Json<Vec<PermissionInfo>
 }
 
 async fn list_roles(
+    State(state): State<AppState>,
+    perms: Permissions,
+    Query(params): Query<ListParams>,
+) -> Result<Json<RolePage>, StatusCode> {
+    perms.require(crate::rbac::roles::read::NAME)?;
+
+    let window = params.window();
+    let search = window.search.as_deref();
+
+    let total = sqlx::query_scalar!(
+        r#"
+        select count(*) as "count!"
+        from roles
+        where ($1::text is null
+               or name ilike '%' || $1 || '%'
+               or coalesce(description, '') ilike '%' || $1 || '%')
+        "#,
+        search
+    )
+    .fetch_one(&state.pool)
+    .await
+    .expect("error counting roles");
+
+    let rows = sqlx::query!(
+        r#"
+        select id::text as "id!", name, description
+        from roles
+        where ($1::text is null
+               or name ilike '%' || $1 || '%'
+               or coalesce(description, '') ilike '%' || $1 || '%')
+        order by name
+        limit $2 offset $3
+        "#,
+        search,
+        window.limit,
+        window.offset,
+    )
+    .fetch_all(&state.pool)
+    .await
+    .expect("error listing roles");
+
+    Ok(Json(RolePage {
+        items: rows
+            .into_iter()
+            .map(|row| RoleResponse {
+                id: row.id,
+                name: row.name,
+                description: row.description,
+            })
+            .collect(),
+        total,
+        page: window.page,
+        per_page: window.per_page,
+    }))
+}
+
+async fn list_all_roles(
     State(state): State<AppState>,
     perms: Permissions,
 ) -> Result<Json<Vec<RoleResponse>>, StatusCode> {

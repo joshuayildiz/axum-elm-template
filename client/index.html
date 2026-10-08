@@ -12,7 +12,7 @@
 <body>
 	<script>
 		var app = Elm.Main.init({
-			flags: { language: localStorage.getItem('lang') || navigator.language }
+			flags: { language: localStorage.getItem('lang') || navigator.language, height: window.innerHeight }
 		});
 		app.ports.setLanguage.subscribe(function (code) {
 			localStorage.setItem('lang', code);

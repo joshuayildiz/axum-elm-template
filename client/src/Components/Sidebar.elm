@@ -41,6 +41,7 @@ type alias Config msg =
     , onToggleMenu : msg
     , onLogout : msg
     , onSecurity : msg
+    , langSwitcher : Html msg
     }
 
 
@@ -50,6 +51,7 @@ view config =
         [ brand config.companyName
         , nav [ class "flex flex-1 flex-col gap-0.5 overflow-y-auto" ]
             (caption config.t.menu :: List.filterMap (viewTab config.permissions config.activePath) (tabs config.t))
+        , div [ class "px-2" ] [ config.langSwitcher ]
         , viewUser config
         ]
 

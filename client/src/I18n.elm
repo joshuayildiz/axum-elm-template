@@ -79,6 +79,10 @@ type alias T =
     , loading : String
     , couldNotLoad : String
     , couldNotLoadPermissions : String
+    , previous : String
+    , next : String
+    , pageWord : String
+    , ofWord : String
     , email : String
     , name : String
     , password : String
@@ -210,6 +214,10 @@ en =
     , loading = "Loading..."
     , couldNotLoad = "Could not load."
     , couldNotLoadPermissions = "Could not load permissions."
+    , previous = "Previous"
+    , next = "Next"
+    , pageWord = "Page"
+    , ofWord = "of"
     , email = "Email"
     , name = "Name"
     , password = "Password"
@@ -324,6 +332,10 @@ tr =
     , loading = "Yükleniyor..."
     , couldNotLoad = "Yüklenemedi."
     , couldNotLoadPermissions = "İzinler yüklenemedi."
+    , previous = "Önceki"
+    , next = "Sonraki"
+    , pageWord = "Sayfa"
+    , ofWord = "/"
     , email = "E-posta"
     , name = "Ad"
     , password = "Parola"

@@ -10,13 +10,15 @@ pub(crate) fn genelm() -> io::Result<()> {
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
                    TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
-                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError],
+                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError,
+                   UserPage, RolePage],
         decoders: [HelloResponse, LoginRequest, UserResponse, MeResponse, AuthError,
                    CreateUser, CreateRole, RoleResponse, PermissionBody, PermissionsBody,
                    RoleBody, PermissionInfo, ServerMessage, ClientMessage,
                    LoginResponse, ChangePassword, PasswordError, TotpSetup, TotpCode,
                    TotpConfirm, TotpDisable, SettingKind, SettingInfo, SettingUpdate,
-                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError],
+                   SettingsBody, PublicConfig, RegisterRequest, RegistrationError,
+                   UserPage, RolePage],
     })
     .expect("error generating Elm bindings");
     println!(
@@ -175,6 +177,22 @@ pub(crate) struct SettingsBody {
 pub(crate) struct PublicConfig {
     pub(crate) company_name: String,
     pub(crate) registration_enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct UserPage {
+    pub(crate) items: Vec<UserResponse>,
+    pub(crate) total: i64,
+    pub(crate) page: i64,
+    pub(crate) per_page: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub(crate) struct RolePage {
+    pub(crate) items: Vec<RoleResponse>,
+    pub(crate) total: i64,
+    pub(crate) page: i64,
+    pub(crate) per_page: i64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]

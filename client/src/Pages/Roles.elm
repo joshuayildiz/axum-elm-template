@@ -1,9 +1,10 @@
 module Pages.Roles exposing (Caps, Model, Msg, init, load, update, view)
 
 import Api
-import Api.Types exposing (PermissionInfo, RoleResponse)
+import Api.Types exposing (PermissionInfo, RolePage, RoleResponse)
 import Components.Button as Button
 import Components.Input as Input
+import Components.Pagination as Pagination
 import Html exposing (Html, button, div, form, h1, h2, input, label, p, span, table, tbody, td, text, textarea, th, thead, tr)
 import Html.Attributes exposing (checked, class, disabled, placeholder, property, rows, type_, value)
 import Html.Events exposing (on, onClick, onInput, onSubmit)
@@ -46,6 +47,9 @@ type alias Model =
     , descriptionDraft : String
     , confirmingDelete : Bool
     , search : String
+    , page : Int
+    , perPage : Int
+    , total : Int
     , form : Form
     }
 
@@ -60,9 +64,11 @@ type alias Caps =
 
 
 type Msg
-    = GotRoles (Result Http.Error (List RoleResponse))
+    = GotRoles (Result Http.Error RolePage)
     | GotPermissions (Result Http.Error (List PermissionInfo))
     | SetSearch String
+    | PrevPage
+    | NextPage
     | Select RoleResponse
     | SetRoleName String
     | SetRoleDescription String
@@ -96,16 +102,29 @@ init =
     , descriptionDraft = ""
     , confirmingDelete = False
     , search = ""
+    , page = 1
+    , perPage = defaultPerPage
+    , total = 0
     , form = emptyForm
     }
+
+
+defaultPerPage : Int
+defaultPerPage =
+    25
+
+
+fetchRoles : Int -> Int -> String -> Cmd Msg
+fetchRoles perPage page search =
+    Api.listRoles { page = page, perPage = perPage, search = search } GotRoles
 
 
 {-| Fetch the role list and the permission catalog. The router runs this when
 the page opens.
 -}
-load : Cmd Msg
-load =
-    Cmd.batch [ Api.listRoles GotRoles, Api.listPermissions GotPermissions ]
+load : Int -> Cmd Msg
+load perPage =
+    Cmd.batch [ fetchRoles perPage 1 "", Api.listPermissions GotPermissions ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -115,14 +134,46 @@ update msg model =
             model.form
     in
     case msg of
-        GotRoles result ->
-            ( { model | roles = fromResult result }, Cmd.none )
+        GotRoles (Ok rolePage) ->
+            if List.isEmpty rolePage.items && rolePage.page > 1 then
+                let
+                    previous =
+                        rolePage.page - 1
+                in
+                ( { model | page = previous }, fetchRoles model.perPage previous model.search )
+
+            else
+                ( { model
+                    | roles = Loaded rolePage.items
+                    , total = rolePage.total
+                    , page = rolePage.page
+                    , perPage = rolePage.perPage
+                  }
+                , Cmd.none
+                )
+
+        GotRoles (Err _) ->
+            ( { model | roles = Failed }, Cmd.none )
 
         GotPermissions result ->
             ( { model | permissions = fromResult result }, Cmd.none )
 
         SetSearch query ->
-            ( { model | search = query }, Cmd.none )
+            ( { model | search = query, page = 1 }, fetchRoles model.perPage 1 query )
+
+        PrevPage ->
+            let
+                previous =
+                    max 1 (model.page - 1)
+            in
+            ( { model | page = previous }, fetchRoles model.perPage previous model.search )
+
+        NextPage ->
+            let
+                next =
+                    model.page + 1
+            in
+            ( { model | page = next }, fetchRoles model.perPage next model.search )
 
         Select role ->
             ( { model
@@ -182,7 +233,7 @@ update msg model =
                 , descriptionDraft = Maybe.withDefault "" role.description
                 , selected = Maybe.map (\s -> { s | role = role }) model.selected
               }
-            , Api.listRoles GotRoles
+            , fetchRoles model.perPage model.page model.search
             )
 
         RoleUpdated (Err _) ->
@@ -205,7 +256,7 @@ update msg model =
                     ( { model | confirmingDelete = False }, Cmd.none )
 
         RoleDeleted _ ->
-            ( { model | selected = Nothing }, Api.listRoles GotRoles )
+            ( { model | selected = Nothing }, fetchRoles model.perPage model.page model.search )
 
         GotRolePermissions result ->
             ( mapSelection (\s -> { s | permissions = fromResult result }) model, Cmd.none )
@@ -284,7 +335,7 @@ update msg model =
             )
 
         Created (Ok _) ->
-            ( { model | form = emptyForm }, Api.listRoles GotRoles )
+            ( { model | form = emptyForm }, fetchRoles model.perPage model.page model.search )
 
         Created (Err error) ->
             ( { model | form = { form | submitting = False, error = Just error } }
@@ -336,11 +387,6 @@ fromResult result =
             Failed
 
 
-matches : String -> RoleResponse -> Bool
-matches query role =
-    String.contains (String.toLower (String.trim query)) (String.toLower role.name)
-
-
 
 -- VIEW
 
@@ -368,7 +414,7 @@ view t caps model =
                 hint t.couldNotLoadRoles
 
             Loaded roles ->
-                viewContent t caps model (List.filter (matches model.search) roles)
+                viewContent t caps model roles
         ]
 
 
@@ -409,7 +455,10 @@ viewSearch t query =
 viewContent : T -> Caps -> Model -> List RoleResponse -> Html Msg
 viewContent t caps model roles =
     div [ class "flex flex-1 items-start gap-4" ]
-        [ div [ class "min-w-0 flex-1" ] [ viewTable t model.selected roles ]
+        [ div [ class "flex min-w-0 flex-1 flex-col gap-3" ]
+            [ Pagination.view t { page = model.page, perPage = model.perPage, total = model.total, onPrev = PrevPage, onNext = NextPage }
+            , viewTable t model.selected roles
+            ]
         , case model.selected of
             Just selection ->
                 viewDetail t caps model selection
@@ -475,7 +524,7 @@ viewTableRow selectedId role =
 viewDetail : T -> Caps -> Model -> Selection -> Html Msg
 viewDetail t caps model selection =
     div []
-        [ div [ class "w-96 shrink-0 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
+        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewName caps.canUpdate model.nameDraft selection.role.name
                     :: section t.description
