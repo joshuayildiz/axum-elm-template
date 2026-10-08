@@ -395,7 +395,7 @@ view : T -> Caps -> Model -> Html Msg
 view t caps model =
     div [ class "flex w-full flex-1 flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-3" ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.roles ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.roles ]
             , div [ class "flex items-center gap-2" ]
                 [ viewSearch t model.search
                 , viewCreateButton t caps.canCreate model.form.open
@@ -423,7 +423,7 @@ viewCreateButton t canCreate open =
     if canCreate then
         button
             [ onClick ToggleForm
-            , class "flex items-center gap-1.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-zinc-800"
+            , class "flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             ]
             (if open then
                 [ text t.cancel ]
@@ -439,14 +439,14 @@ viewCreateButton t canCreate open =
 viewSearch : T -> String -> Html Msg
 viewSearch t query =
     div [ class "relative" ]
-        [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" ]
+        [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" ]
             [ Icons.search ]
         , input
             [ type_ "search"
             , placeholder t.searchRoles
             , value query
             , onInput SetSearch
-            , class "w-64 rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            , class "w-64 rounded-lg border border-border bg-card py-1.5 pl-8 pr-3 text-[13px] text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             ]
             []
         ]
@@ -474,10 +474,10 @@ viewTable t selected roles =
         selectedId =
             Maybe.map (\s -> s.role.id) selected
     in
-    div [ class "overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-sm" ]
+    div [ class "overflow-hidden rounded-xl border border-border bg-card shadow-sm" ]
         [ table [ class "w-full border-collapse text-left text-[13px]" ]
             [ thead []
-                [ tr [ class "border-b border-zinc-200 bg-zinc-50/60" ]
+                [ tr [ class "border-b border-border bg-muted/50" ]
                     [ th [ class headClass ] [ text t.name ]
                     , th [ class headClass ] [ text t.description ]
                     ]
@@ -485,7 +485,7 @@ viewTable t selected roles =
             , tbody []
                 (if List.isEmpty roles then
                     [ tr []
-                        [ td [ class "px-3 py-6 text-center text-[13px] text-zinc-400", Html.Attributes.colspan 2 ]
+                        [ td [ class "px-3 py-6 text-center text-[13px] text-muted-foreground", Html.Attributes.colspan 2 ]
                             [ text t.noRolesMatch ]
                         ]
                     ]
@@ -499,7 +499,7 @@ viewTable t selected roles =
 
 headClass : String
 headClass =
-    "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400"
+    "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
 
 
 viewTableRow : Maybe String -> RoleResponse -> Html Msg
@@ -507,24 +507,24 @@ viewTableRow selectedId role =
     tr
         [ onClick (Select role)
         , class
-            ("cursor-pointer border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50"
+            ("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent"
                 ++ (if selectedId == Just role.id then
-                        " bg-zinc-50"
+                        " bg-muted"
 
                     else
                         ""
                    )
             )
         ]
-        [ td [ class "px-3 py-2 font-medium text-zinc-900" ] [ text role.name ]
-        , td [ class "px-3 py-2 text-zinc-500" ] [ text (Maybe.withDefault "—" role.description) ]
+        [ td [ class "px-3 py-2 font-medium text-foreground" ] [ text role.name ]
+        , td [ class "px-3 py-2 text-muted-foreground" ] [ text (Maybe.withDefault "—" role.description) ]
         ]
 
 
 viewDetail : T -> Caps -> Model -> Selection -> Html Msg
 viewDetail t caps model selection =
     div []
-        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
+        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewName caps.canUpdate model.nameDraft selection.role.name
                     :: section t.description
@@ -564,12 +564,12 @@ viewName canUpdate nameDraft name =
             , value nameDraft
             , onInput SetRoleName
             , on "change" (Decode.succeed CommitRole)
-            , class "-ml-2 w-full rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-zinc-900 transition-colors hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+            , class "-ml-2 w-full rounded-lg border border-transparent px-2 py-1 text-sm font-semibold text-foreground transition-colors hover:border-border focus:border-ring focus:outline-none"
             ]
             []
 
     else
-        span [ class "text-sm font-semibold text-zinc-900" ] [ text name ]
+        span [ class "text-sm font-semibold text-foreground" ] [ text name ]
 
 
 viewDescription : T -> Bool -> String -> String -> Html Msg
@@ -581,7 +581,7 @@ viewDescription t canUpdate descriptionDraft current =
             , on "change" (Decode.succeed CommitRole)
             , rows 2
             , placeholder t.noDescriptionPlaceholder
-            , class "w-full resize-none rounded-lg border border-zinc-200 px-2 py-1.5 text-[13px] text-zinc-700 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            , class "w-full resize-none rounded-lg border border-border px-2 py-1.5 text-[13px] text-muted-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             ]
             []
 
@@ -589,34 +589,34 @@ viewDescription t canUpdate descriptionDraft current =
         hint t.noDescription
 
     else
-        p [ class "text-[13px] text-zinc-600" ] [ text current ]
+        p [ class "text-[13px] text-muted-foreground" ] [ text current ]
 
 
 viewDeleteButton : T -> Html Msg
 viewDeleteButton t =
     button
         [ onClick RequestDelete
-        , class "self-start rounded-lg border border-red-200 px-2.5 py-1.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
+        , class "self-start rounded-lg border border-destructive/30 px-2.5 py-1.5 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
         ]
         [ text t.deleteRole ]
 
 
 viewDeleteModal : T -> String -> Html Msg
 viewDeleteModal t name =
-    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" ]
-        [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg" ]
-            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text t.deleteRole ]
-            , p [ class "text-[13px] text-zinc-500" ]
+    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 p-4" ]
+        [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-lg" ]
+            [ h2 [ class "text-sm font-semibold text-foreground" ] [ text t.deleteRole ]
+            , p [ class "text-[13px] text-muted-foreground" ]
                 [ text (t.deleteRoleConfirmPrefix ++ name ++ t.deleteRoleConfirmSuffix) ]
             , div [ class "flex justify-end gap-2" ]
                 [ button
                     [ onClick CancelDelete
-                    , class "rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    , class "rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent"
                     ]
                     [ text t.cancel ]
                 , button
                     [ onClick ConfirmDelete
-                    , class "rounded-lg bg-red-600 px-2.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-red-700"
+                    , class "rounded-lg bg-destructive px-2.5 py-1.5 text-[13px] font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
                     ]
                     [ text t.delete ]
                 ]
@@ -627,7 +627,7 @@ viewDeleteModal t name =
 section : String -> Html Msg -> Html Msg
 section title body =
     div [ class "flex flex-col gap-1.5" ]
-        [ h2 [ class "text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400" ] [ text title ]
+        [ h2 [ class "text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" ] [ text title ]
         , body
         ]
 
@@ -703,7 +703,7 @@ viewRow canGrant catalog granted depth node =
             not (List.isEmpty node.children)
     in
     label
-        [ class "flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] hover:bg-zinc-50"
+        [ class "flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] hover:bg-accent"
         , Html.Attributes.style "padding-left" (String.fromInt (8 + depth * 16) ++ "px")
         ]
         [ input
@@ -712,16 +712,16 @@ viewRow canGrant catalog granted depth node =
             , property "indeterminate" (Encode.bool indeterminate)
             , disabled (not canGrant)
             , onClick (ClickNode node.name)
-            , class "h-3.5 w-3.5 accent-zinc-900 disabled:opacity-50"
+            , class "h-3.5 w-3.5 accent-primary disabled:opacity-50"
             ]
             []
         , span
             [ class
                 (if isBranch then
-                    "font-medium text-zinc-800"
+                    "font-medium text-foreground"
 
                  else
-                    "text-zinc-700"
+                    "text-muted-foreground"
                 )
             ]
             [ text node.segment ]
@@ -756,7 +756,7 @@ viewForm : T -> Form -> Html Msg
 viewForm t form_ =
     form
         [ onSubmit Submit
-        , class "flex flex-col gap-3.5 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm"
+        , class "flex flex-col gap-3.5 rounded-xl border border-border bg-card p-5 shadow-sm"
         ]
         [ Input.view
             { label = t.name
@@ -789,7 +789,7 @@ viewError : T -> Maybe Http.Error -> Html Msg
 viewError t maybeError =
     case maybeError of
         Just error ->
-            p [ class "text-[13px] text-red-600" ] [ text (createError t error) ]
+            p [ class "text-[13px] text-destructive" ] [ text (createError t error) ]
 
         Nothing ->
             text ""
@@ -797,4 +797,4 @@ viewError t maybeError =
 
 hint : String -> Html Msg
 hint message =
-    p [ class "text-[13px] text-zinc-500" ] [ text message ]
+    p [ class "text-[13px] text-muted-foreground" ] [ text message ]

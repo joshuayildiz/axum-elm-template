@@ -237,9 +237,9 @@ view t companyName registrationEnabled model =
 viewBrand : String -> Html Msg
 viewBrand name =
     div [ class "flex items-center gap-2.5" ]
-        [ div [ class "flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white" ]
+        [ div [ class "flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground" ]
             [ text (String.toUpper (String.left 1 name)) ]
-        , span [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text name ]
+        , span [ class "text-base font-semibold tracking-tight text-foreground" ] [ text name ]
         ]
 
 
@@ -247,7 +247,7 @@ viewCredentials : T -> Bool -> Model -> Html Msg
 viewCredentials t registrationEnabled model =
     Card.view
         [ form [ class "flex flex-col gap-5", onSubmit SubmitLogin ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.signIn ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.signIn ]
             , Input.view
                 { label = t.email
                 , type_ = "email"
@@ -280,11 +280,11 @@ viewCredentials t registrationEnabled model =
 viewRegisterLink : T -> Bool -> Html Msg
 viewRegisterLink t registrationEnabled =
     if registrationEnabled then
-        p [ class "text-center text-[13px] text-zinc-500" ]
+        p [ class "text-center text-[13px] text-muted-foreground" ]
             [ text (t.needAccount ++ " ")
             , a
                 [ href "/register"
-                , class "font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
+                , class "font-medium text-foreground underline underline-offset-4 hover:text-foreground"
                 ]
                 [ text t.createAccount ]
             ]
@@ -297,11 +297,11 @@ viewCode : T -> Model -> Html Msg
 viewCode t model =
     Card.view
         [ form [ class "flex flex-col items-center gap-6", onSubmit SubmitCode ]
-            [ div [ class "flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-white" ]
+            [ div [ class "flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground" ]
                 [ Icons.security ]
             , div [ class "flex flex-col items-center gap-1.5 text-center" ]
-                [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.twoFactor ]
-                , p [ class "max-w-[16rem] text-[13px] leading-relaxed text-zinc-500" ] [ text t.enterCode ]
+                [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.twoFactor ]
+                , p [ class "max-w-[16rem] text-[13px] leading-relaxed text-muted-foreground" ] [ text t.enterCode ]
                 ]
             , div [ class "flex gap-2" ]
                 (List.map (viewDigit model.code) (List.range 0 (codeLength - 1)))
@@ -336,7 +336,7 @@ viewDigit code index =
         , value (digitAt index code)
         , onInput (DigitChanged index)
         , on "keydown" (Decode.map (DigitKeyDown index) (Decode.field "key" Decode.string))
-        , class "h-12 w-11 rounded-xl border border-zinc-200 bg-zinc-50/50 text-center text-xl font-semibold text-zinc-900 transition-colors focus:border-zinc-900 focus:bg-white focus:outline-none focus:ring-0"
+        , class "h-12 w-11 rounded-xl border border-border bg-muted/50 text-center text-xl font-semibold text-foreground transition-colors focus:border-ring focus:bg-card focus:outline-none focus:ring-0"
         ]
         []
 
@@ -345,7 +345,7 @@ viewError : T -> Maybe Error -> Html Msg
 viewError t maybeError =
     case maybeError of
         Just error ->
-            p [ class "text-[13px] text-red-600" ] [ text (errorMessage t error) ]
+            p [ class "text-[13px] text-destructive" ] [ text (errorMessage t error) ]
 
         Nothing ->
             text ""

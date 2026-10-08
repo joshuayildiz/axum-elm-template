@@ -111,15 +111,15 @@ view : T -> Model -> Html Msg
 view t model =
     div [ class "flex w-full max-w-lg flex-1 flex-col gap-5" ]
         [ div [ class "flex flex-col gap-1" ]
-            [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.settings ]
-            , p [ class "text-[13px] text-zinc-500" ] [ text t.settingsIntro ]
+            [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.settings ]
+            , p [ class "text-[13px] text-muted-foreground" ] [ text t.settingsIntro ]
             ]
         , case model.settings of
             Loading ->
-                p [ class "text-sm text-zinc-500" ] [ text t.loading ]
+                p [ class "text-sm text-muted-foreground" ] [ text t.loading ]
 
             Failed ->
-                p [ class "text-sm text-zinc-500" ] [ text t.couldNotLoad ]
+                p [ class "text-sm text-muted-foreground" ] [ text t.couldNotLoad ]
 
             Loaded settings ->
                 viewForm t model settings
@@ -155,10 +155,10 @@ viewSetting t setting =
                                     "false"
                                 )
                         )
-                    , class "h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                    , class "h-4 w-4 rounded border-border text-foreground focus:ring-ring"
                     ]
                     []
-                , span [ class "text-[13px] font-medium text-zinc-800" ] [ text (settingLabel t setting.name) ]
+                , span [ class "text-[13px] font-medium text-foreground" ] [ text (settingLabel t setting.name) ]
                 ]
 
         Text ->
@@ -178,10 +178,10 @@ viewNotice t notice =
             text ""
 
         Saved ->
-            p [ class "text-[13px] text-emerald-600" ] [ text t.saved ]
+            p [ class "text-[13px] text-success" ] [ text t.saved ]
 
         SaveFailed ->
-            p [ class "text-[13px] text-red-600" ] [ text t.settingsSaveError ]
+            p [ class "text-[13px] text-destructive" ] [ text t.settingsSaveError ]
 
 
 settingLabel : T -> String -> String

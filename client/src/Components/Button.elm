@@ -9,14 +9,14 @@ for example `type_ "submit"`, `onClick`, or `disabled`.
 -}
 primary : List (Html.Attribute msg) -> List (Html msg) -> Html msg
 primary attrs children =
-    button (attrs ++ [ class (base ++ " bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 active:bg-zinc-900") ]) children
+    button (attrs ++ [ class (base ++ " bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:bg-primary") ]) children
 
 
 {-| A quiet, outlined action, full width.
 -}
 secondary : List (Html.Attribute msg) -> List (Html msg) -> Html msg
 secondary attrs children =
-    button (attrs ++ [ class (base ++ " border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50") ]) children
+    button (attrs ++ [ class (base ++ " border border-border bg-card text-muted-foreground hover:bg-accent") ]) children
 
 
 base : String

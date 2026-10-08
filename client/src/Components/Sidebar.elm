@@ -42,34 +42,35 @@ type alias Config msg =
     , onLogout : msg
     , onSecurity : msg
     , langSwitcher : Html msg
+    , themeSwitcher : Html msg
     }
 
 
 view : Config msg -> Html msg
 view config =
-    aside [ class "flex w-52 shrink-0 flex-col gap-5 border-r border-zinc-200/70 bg-white/60 p-3" ]
+    aside [ class "flex w-52 shrink-0 flex-col gap-5 border-r border-border bg-sidebar p-3" ]
         [ brand config.companyName
         , nav [ class "flex flex-1 flex-col gap-0.5 overflow-y-auto" ]
             (caption config.t.menu :: List.filterMap (viewTab config.permissions config.activePath) (tabs config.t))
-        , div [ class "px-2" ] [ config.langSwitcher ]
+        , div [ class "flex flex-col gap-2 px-2" ] [ config.langSwitcher, config.themeSwitcher ]
         , viewUser config
         ]
 
 
 viewUser : Config msg -> Html msg
 viewUser config =
-    div [ class "relative mt-auto border-t border-zinc-200/70 pt-3" ]
+    div [ class "relative mt-auto border-t border-border pt-3" ]
         [ button
             [ onClick config.onToggleMenu
-            , class "flex w-full flex-col gap-0.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-zinc-100"
+            , class "flex w-full flex-col gap-0.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-accent"
             ]
-            [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ]
+            [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground" ]
                 [ text config.t.signedInAs ]
-            , span [ class "truncate text-[13px] font-medium text-zinc-800" ]
+            , span [ class "truncate text-[13px] font-medium text-foreground" ]
                 [ text (Maybe.withDefault config.email config.name) ]
             , case config.name of
                 Just _ ->
-                    span [ class "truncate text-[11px] text-zinc-400" ] [ text config.email ]
+                    span [ class "truncate text-[11px] text-muted-foreground" ] [ text config.email ]
 
                 Nothing ->
                     text ""
@@ -86,9 +87,9 @@ viewMenu : Config msg -> Html msg
 viewMenu config =
     div []
         [ div [ class "fixed inset-0 z-40", onClick config.onToggleMenu ] []
-        , div [ class "absolute bottom-full left-0 z-50 mb-1 w-full rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" ]
+        , div [ class "absolute bottom-full left-0 z-50 mb-1 w-full rounded-lg border border-border bg-card p-1 shadow-lg" ]
             [ menuItemWithIcon config.onSecurity Icons.security config.t.security
-            , div [ class "my-1 border-t border-zinc-100" ] []
+            , div [ class "my-1 border-t border-border" ] []
             , menuItemWithIcon config.onLogout Icons.logOut config.t.logOut
             ]
         ]
@@ -98,7 +99,7 @@ menuItemWithIcon : msg -> Html msg -> String -> Html msg
 menuItemWithIcon onSelect icon label =
     button
         [ onClick onSelect
-        , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+        , class "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent"
         ]
         [ icon, text label ]
 
@@ -106,15 +107,15 @@ menuItemWithIcon onSelect icon label =
 brand : String -> Html msg
 brand name =
     div [ class "flex items-center gap-2 px-2 pt-1" ]
-        [ div [ class "flex h-6 w-6 items-center justify-center rounded-md bg-zinc-900 text-[11px] font-bold text-white" ]
+        [ div [ class "flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground" ]
             [ text (String.toUpper (String.left 1 name)) ]
-        , span [ class "text-sm font-semibold tracking-tight text-zinc-900" ] [ text name ]
+        , span [ class "text-sm font-semibold tracking-tight text-foreground" ] [ text name ]
         ]
 
 
 caption : String -> Html msg
 caption label =
-    span [ class "px-2.5 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ]
+    span [ class "px-2.5 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground" ]
         [ text label ]
 
 
@@ -143,10 +144,10 @@ link activePath tab =
         [ href tab.path
         , class
             (if tab.path == activePath then
-                "flex items-center gap-2.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white"
+                "flex items-center gap-2.5 rounded-lg bg-primary px-2.5 py-1.5 text-[13px] font-medium text-primary-foreground"
 
              else
-                "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             )
         ]
         [ tab.icon

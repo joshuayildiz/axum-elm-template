@@ -34,9 +34,9 @@ view config =
 
 labelClass : String
 labelClass =
-    "block text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400"
+    "block text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
 
 
 inputClass : String
 inputClass =
-    "mt-1.5 w-full border-0 border-b border-zinc-200 bg-transparent px-0 py-1.5 text-sm text-zinc-900 transition-colors placeholder:text-zinc-300 focus:border-zinc-900 focus:outline-none focus:ring-0"
+    "mt-1.5 w-full border-0 border-b border-border bg-transparent px-0 py-1.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-0"

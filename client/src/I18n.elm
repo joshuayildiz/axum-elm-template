@@ -83,6 +83,9 @@ type alias T =
     , next : String
     , pageWord : String
     , ofWord : String
+    , themeSystem : String
+    , themeLight : String
+    , themeDark : String
     , email : String
     , name : String
     , password : String
@@ -218,6 +221,9 @@ en =
     , next = "Next"
     , pageWord = "Page"
     , ofWord = "of"
+    , themeSystem = "System"
+    , themeLight = "Light"
+    , themeDark = "Dark"
     , email = "Email"
     , name = "Name"
     , password = "Password"
@@ -336,6 +342,9 @@ tr =
     , next = "Sonraki"
     , pageWord = "Sayfa"
     , ofWord = "/"
+    , themeSystem = "Sistem"
+    , themeLight = "Açık"
+    , themeDark = "Koyu"
     , email = "E-posta"
     , name = "Ad"
     , password = "Parola"

@@ -6,17 +6,34 @@
 	<link rel="preconnect" href="https://fonts.bunny.net">
 	<link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet">
 	<link rel="stylesheet" href="/app.css">
+	<script>
+		(function () {
+			function apply(theme) {
+				var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+				document.documentElement.classList.toggle('dark', dark);
+			}
+			window.__applyTheme = apply;
+			apply(localStorage.getItem('theme') || 'system');
+			window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+				if ((localStorage.getItem('theme') || 'system') === 'system') apply('system');
+			});
+		})();
+	</script>
 	<script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
 	<script src="/app.js"></script>
 </head>
 <body>
 	<script>
 		var app = Elm.Main.init({
-			flags: { language: localStorage.getItem('lang') || navigator.language, height: window.innerHeight }
+			flags: { language: localStorage.getItem('lang') || navigator.language, theme: localStorage.getItem('theme') || 'system', height: window.innerHeight }
 		});
 		app.ports.setLanguage.subscribe(function (code) {
 			localStorage.setItem('lang', code);
 			document.documentElement.lang = code;
+		});
+		app.ports.setTheme.subscribe(function (theme) {
+			localStorage.setItem('theme', theme);
+			window.__applyTheme(theme);
 		});
 
 		// The websocket. Elm asks to connect once signed in and to disconnect on

@@ -450,8 +450,8 @@ view t online caps model =
     div [ class "flex w-full flex-1 flex-col gap-4" ]
         [ div [ class "flex items-center justify-between gap-3" ]
             [ div [ class "flex items-center gap-2.5" ]
-                [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.users ]
-                , span [ class "rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700" ]
+                [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.users ]
+                , span [ class "rounded-md bg-success/10 px-1.5 py-0.5 text-[11px] font-medium text-success" ]
                     [ text (String.fromInt (Set.size online) ++ " " ++ t.online) ]
                 ]
             , div [ class "flex items-center gap-2" ]
@@ -481,7 +481,7 @@ viewCreateButton t canCreate open =
     if canCreate then
         button
             [ onClick ToggleForm
-            , class "flex items-center gap-1.5 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[13px] font-medium text-white shadow-sm transition-colors hover:bg-zinc-800"
+            , class "flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[13px] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             ]
             (if open then
                 [ text t.cancel ]
@@ -497,14 +497,14 @@ viewCreateButton t canCreate open =
 viewSearch : T -> String -> Html Msg
 viewSearch t query =
     div [ class "relative" ]
-        [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" ]
+        [ span [ class "pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" ]
             [ Icons.search ]
         , input
             [ type_ "search"
             , placeholder t.searchUsers
             , value query
             , onInput SetSearch
-            , class "w-64 rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            , class "w-64 rounded-lg border border-border bg-card py-1.5 pl-8 pr-3 text-[13px] text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             ]
             []
         ]
@@ -532,10 +532,10 @@ viewTable t online selected users =
         selectedId =
             Maybe.map (\s -> s.user.id) selected
     in
-    div [ class "overflow-hidden rounded-xl border border-zinc-200/70 bg-white shadow-sm" ]
+    div [ class "overflow-hidden rounded-xl border border-border bg-card shadow-sm" ]
         [ table [ class "w-full border-collapse text-left text-[13px]" ]
             [ thead []
-                [ tr [ class "border-b border-zinc-200 bg-zinc-50/60" ]
+                [ tr [ class "border-b border-border bg-muted/50" ]
                     [ th [ class headClass ] [ text t.email ]
                     , th [ class headClass ] [ text t.name ]
                     , th [ class (headClass ++ " text-right") ] [ text t.admin ]
@@ -544,7 +544,7 @@ viewTable t online selected users =
             , tbody []
                 (if List.isEmpty users then
                     [ tr []
-                        [ td [ class "px-3 py-6 text-center text-[13px] text-zinc-400" ]
+                        [ td [ class "px-3 py-6 text-center text-[13px] text-muted-foreground" ]
                             [ text t.noUsersMatch ]
                         ]
                     ]
@@ -558,7 +558,7 @@ viewTable t online selected users =
 
 headClass : String
 headClass =
-    "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400"
+    "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
 
 
 viewTableRow : T -> Set String -> Maybe String -> UserResponse -> Html Msg
@@ -566,29 +566,29 @@ viewTableRow t online selectedId user =
     tr
         [ onClick (Select user)
         , class
-            ("cursor-pointer border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50"
+            ("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent"
                 ++ (if selectedId == Just user.id then
-                        " bg-zinc-50"
+                        " bg-muted"
 
                     else
                         ""
                    )
             )
         ]
-        [ td [ class "px-3 py-2 font-medium text-zinc-900" ]
+        [ td [ class "px-3 py-2 font-medium text-foreground" ]
             [ div [ class "flex items-center gap-2" ]
                 [ viewDot t (Set.member user.id online)
                 , text user.email
                 ]
             ]
-        , td [ class "px-3 py-2 text-zinc-600" ] [ text (Maybe.withDefault "—" user.name) ]
+        , td [ class "px-3 py-2 text-muted-foreground" ] [ text (Maybe.withDefault "—" user.name) ]
         , td [ class "px-3 py-2 text-right" ]
             [ if user.isAdmin then
-                span [ class "rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500" ]
+                span [ class "rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground" ]
                     [ text t.admin ]
 
               else
-                span [ class "text-zinc-300" ] [ text "—" ]
+                span [ class "text-muted-foreground" ] [ text "—" ]
             ]
         ]
 
@@ -602,10 +602,10 @@ viewDot t isOnline =
         [ class
             ("h-2 w-2 shrink-0 rounded-full "
                 ++ (if isOnline then
-                        "bg-emerald-500"
+                        "bg-success"
 
                     else
-                        "bg-zinc-300"
+                        "bg-muted-foreground/40"
                    )
             )
         , title
@@ -622,7 +622,7 @@ viewDot t isOnline =
 viewDetail : T -> Caps -> Remote (List PermissionInfo) -> Remote (List RoleResponse) -> String -> Bool -> Selection -> Html Msg
 viewDetail t caps permissions allRoles roleInput confirmingDelete selection =
     div []
-        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm" ]
+        [ div [ class "max-h-[calc(100dvh-10rem)] w-96 shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-sm" ]
             [ div [ class "flex flex-col gap-5" ]
                 (viewUser selection.user
                     :: (if caps.canReadRoles then
@@ -657,27 +657,27 @@ viewDeleteButton : T -> Html Msg
 viewDeleteButton t =
     button
         [ onClick RequestDelete
-        , class "self-start rounded-lg border border-red-200 px-2.5 py-1.5 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
+        , class "self-start rounded-lg border border-destructive/30 px-2.5 py-1.5 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
         ]
         [ text t.deleteUser ]
 
 
 viewDeleteModal : T -> String -> Html Msg
 viewDeleteModal t email =
-    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" ]
-        [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg" ]
-            [ h2 [ class "text-sm font-semibold text-zinc-900" ] [ text t.deleteUser ]
-            , p [ class "text-[13px] text-zinc-500" ]
+    div [ class "fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 p-4" ]
+        [ div [ class "flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-lg" ]
+            [ h2 [ class "text-sm font-semibold text-foreground" ] [ text t.deleteUser ]
+            , p [ class "text-[13px] text-muted-foreground" ]
                 [ text (t.deleteUserConfirmPrefix ++ email ++ t.deleteUserConfirmSuffix) ]
             , div [ class "flex justify-end gap-2" ]
                 [ button
                     [ onClick CancelDelete
-                    , class "rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    , class "rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent"
                     ]
                     [ text t.cancel ]
                 , button
                     [ onClick ConfirmDelete
-                    , class "rounded-lg bg-red-600 px-2.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-red-700"
+                    , class "rounded-lg bg-destructive px-2.5 py-1.5 text-[13px] font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
                     ]
                     [ text t.delete ]
                 ]
@@ -715,12 +715,12 @@ viewRoles t caps allRoles roleInput assigned =
 
 viewRolePill : Bool -> RoleResponse -> Html Msg
 viewRolePill canRemove role =
-    span [ class "inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600" ]
+    span [ class "inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" ]
         (text role.name
             :: (if canRemove then
                     [ button
                         [ onClick (RemoveRole role.id)
-                        , class "text-zinc-400 transition-colors hover:text-zinc-900"
+                        , class "text-muted-foreground transition-colors hover:text-foreground"
                         ]
                         [ text "×" ]
                     ]
@@ -753,7 +753,7 @@ viewRoleInput t allRoles roleInput assigned =
             , onInput SetRoleInput
             , on "change" (Decode.map AddRole targetValue)
             , list "user-roles-options"
-            , class "w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] text-zinc-900 transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+            , class "w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             ]
             []
         , datalist [ id "user-roles-options" ]
@@ -770,9 +770,9 @@ roleByName roles name =
 viewUser : UserResponse -> Html Msg
 viewUser user =
     div [ class "flex flex-col gap-0.5" ]
-        [ span [ class "text-sm font-semibold text-zinc-900" ]
+        [ span [ class "text-sm font-semibold text-foreground" ]
             [ text (Maybe.withDefault user.email user.name) ]
-        , span [ class "text-[13px] text-zinc-500" ] [ text user.email ]
+        , span [ class "text-[13px] text-muted-foreground" ] [ text user.email ]
         ]
 
 
@@ -861,7 +861,7 @@ viewRow t canGrant admin catalog direct inherited depth node =
                 && not (List.member node.name direct)
     in
     label
-        [ class "flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] hover:bg-zinc-50"
+        [ class "flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] hover:bg-accent"
         , style "padding-left" (String.fromInt (8 + depth * 16) ++ "px")
         ]
         [ input
@@ -870,25 +870,25 @@ viewRow t canGrant admin catalog direct inherited depth node =
             , property "indeterminate" (Encode.bool indeterminate)
             , disabled (not canGrant || admin)
             , onClick (ClickNode node.name)
-            , class "h-3.5 w-3.5 accent-zinc-900 disabled:opacity-50"
+            , class "h-3.5 w-3.5 accent-primary disabled:opacity-50"
             ]
             []
         , span
             [ class
                 (if isLeafNode then
                     if fromRoleOnly then
-                        "text-zinc-400"
+                        "text-muted-foreground"
 
                     else
-                        "text-zinc-700"
+                        "text-muted-foreground"
 
                  else
-                    "font-medium text-zinc-800"
+                    "font-medium text-foreground"
                 )
             ]
             [ text node.segment ]
         , if fromRoleOnly then
-            span [ class "text-[10px] uppercase tracking-wide text-zinc-300" ] [ text t.roleTag ]
+            span [ class "text-[10px] uppercase tracking-wide text-muted-foreground" ] [ text t.roleTag ]
 
           else
             text ""
@@ -927,7 +927,7 @@ segmentOf name =
 section : String -> Html Msg -> Html Msg
 section title body =
     div [ class "flex flex-col gap-1.5" ]
-        [ h2 [ class "text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400" ] [ text title ]
+        [ h2 [ class "text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground" ] [ text title ]
         , body
         ]
 
@@ -936,7 +936,7 @@ viewForm : T -> Form -> Html Msg
 viewForm t form_ =
     form
         [ onSubmit Submit
-        , class "flex flex-col gap-3.5 rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm"
+        , class "flex flex-col gap-3.5 rounded-xl border border-border bg-card p-5 shadow-sm"
         ]
         [ Input.view
             { label = t.email
@@ -959,12 +959,12 @@ viewForm t form_ =
             , value = form_.password
             , onInput = SetPassword
             }
-        , label [ class "flex items-center gap-2 text-sm text-zinc-700" ]
+        , label [ class "flex items-center gap-2 text-sm text-muted-foreground" ]
             [ input
                 [ type_ "checkbox"
                 , checked form_.isAdmin
                 , onCheck SetAdmin
-                , class "h-4 w-4 accent-zinc-900"
+                , class "h-4 w-4 accent-primary"
                 ]
                 []
             , text t.admin
@@ -986,7 +986,7 @@ viewError : T -> Maybe Http.Error -> Html Msg
 viewError t maybeError =
     case maybeError of
         Just error ->
-            p [ class "text-[13px] text-red-600" ] [ text (createError t error) ]
+            p [ class "text-[13px] text-destructive" ] [ text (createError t error) ]
 
         Nothing ->
             text ""
@@ -994,4 +994,4 @@ viewError t maybeError =
 
 hint : String -> Html Msg
 hint message =
-    p [ class "text-[13px] text-zinc-500" ] [ text message ]
+    p [ class "text-[13px] text-muted-foreground" ] [ text message ]

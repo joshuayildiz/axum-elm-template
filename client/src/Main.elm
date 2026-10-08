@@ -8,6 +8,7 @@ import Browser.Navigation as Nav
 import Components.Account as Account
 import Components.LangSwitcher as LangSwitcher
 import Components.Sidebar as Sidebar
+import Components.ThemeSwitcher as ThemeSwitcher
 import Html exposing (Html, a, div, h1, p, text)
 import Html.Attributes exposing (class, href)
 import Http
@@ -30,6 +31,12 @@ import Url.Parser as Parser exposing (Parser)
 writes it to `localStorage`.
 -}
 port setLanguage : String -> Cmd msg
+
+
+{-| Persist the chosen theme and apply it. `index.html` toggles the `dark` class
+on the document and writes the choice to `localStorage`.
+-}
+port setTheme : String -> Cmd msg
 
 
 {-| Open the websocket. `index.html` holds the socket and reconnects it. Called
@@ -57,7 +64,7 @@ port socketMessage : (String -> msg) -> Sub msg
 or the browser language.
 -}
 type alias Flags =
-    { language : String, height : Float }
+    { language : String, theme : String, height : Float }
 
 
 {-| One broadcast line, as shown in the home-page log.
@@ -87,6 +94,7 @@ type alias Model =
     , route : Route
     , session : Session
     , lang : Lang
+    , theme : ThemeSwitcher.Theme
     , windowHeight : Int
     , login : Login.Model
     , register : Register.Model
@@ -114,6 +122,7 @@ type Msg
     | RolesMsg Roles.Msg
     | SettingsMsg Settings.Msg
     | SetLang Lang
+    | SetTheme ThemeSwitcher.Theme
     | ToggleUserMenu
     | OpenAccount Account.Tab
     | AccountMsg Account.Msg
@@ -144,6 +153,7 @@ init flags url key =
       , route = toRoute url
       , session = Checking
       , lang = I18n.fromString flags.language
+      , theme = ThemeSwitcher.fromString flags.theme
       , windowHeight = round flags.height
       , login = Login.init
       , register = Register.init
@@ -403,6 +413,9 @@ update msg model =
         SetLang lang ->
             ( { model | lang = lang }, setLanguage (I18n.toString lang) )
 
+        SetTheme theme ->
+            ( { model | theme = theme }, setTheme (ThemeSwitcher.toString theme) )
+
         ToggleUserMenu ->
             ( { model | userMenuOpen = not model.userMenuOpen }, Cmd.none )
 
@@ -588,10 +601,12 @@ viewShell : T -> Model -> Html Msg
 viewShell t model =
     case model.session of
         Checking ->
-            centered model.lang [ viewLoading t ]
+            centered t model.lang model.theme [ viewLoading t ]
 
         Anonymous ->
-            centered model.lang
+            centered t
+                model.lang
+                model.theme
                 [ case model.route of
                     Login ->
                         Html.map LoginMsg (Login.view t model.companyName model.registrationEnabled model.login)
@@ -606,10 +621,10 @@ viewShell t model =
         SignedIn me ->
             case model.route of
                 Login ->
-                    centered model.lang [ viewLoading t ]
+                    centered t model.lang model.theme [ viewLoading t ]
 
                 Register ->
-                    centered model.lang [ viewLoading t ]
+                    centered t model.lang model.theme [ viewLoading t ]
 
                 _ ->
                     viewSignedIn t model me
@@ -620,11 +635,14 @@ langSwitcher lang =
     LangSwitcher.view lang SetLang
 
 
-centered : Lang -> List (Html Msg) -> Html Msg
-centered lang children =
+centered : T -> Lang -> ThemeSwitcher.Theme -> List (Html Msg) -> Html Msg
+centered t lang theme children =
     div
-        [ class "relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-zinc-50 px-4 text-zinc-900" ]
-        (div [ class "absolute right-4 top-4" ] [ langSwitcher lang ] :: children)
+        [ class "relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-4 text-foreground" ]
+        (div [ class "absolute right-4 top-4 flex items-center gap-2" ]
+            [ langSwitcher lang, ThemeSwitcher.view t theme SetTheme ]
+            :: children
+        )
 
 
 {-| The sidebar beside the page content. The sidebar shows only the tabs the
@@ -633,7 +651,7 @@ permissions allow, so the guard and the sidebar agree on what a user can reach.
 viewSignedIn : T -> Model -> MeResponse -> Html Msg
 viewSignedIn t model me =
     div []
-        [ div [ class "flex h-dvh overflow-hidden bg-zinc-50 text-zinc-900" ]
+        [ div [ class "flex h-dvh overflow-hidden bg-background text-foreground" ]
             [ Sidebar.view
                 { t = t
                 , companyName = me.companyName
@@ -646,6 +664,7 @@ viewSignedIn t model me =
                 , onLogout = Logout
                 , onSecurity = OpenAccount Account.PasswordTab
                 , langSwitcher = langSwitcher model.lang
+                , themeSwitcher = ThemeSwitcher.view t model.theme SetTheme
                 }
             , div [ class "flex flex-1 flex-col items-center gap-5 overflow-y-auto p-6" ]
                 [ viewPage t model me ]
@@ -700,16 +719,16 @@ viewPage t model me =
 
 viewLoading : T -> Html Msg
 viewLoading t =
-    p [ class "text-sm text-zinc-500" ] [ text t.loading ]
+    p [ class "text-sm text-muted-foreground" ] [ text t.loading ]
 
 
 viewNotFound : T -> Html Msg
 viewNotFound t =
     div [ class "flex flex-col items-center gap-3" ]
-        [ h1 [ class "text-lg font-semibold tracking-tight text-zinc-900" ] [ text t.notFound ]
+        [ h1 [ class "text-lg font-semibold tracking-tight text-foreground" ] [ text t.notFound ]
         , a
             [ href "/"
-            , class "text-sm font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
+            , class "text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground"
             ]
             [ text t.goHome ]
         ]

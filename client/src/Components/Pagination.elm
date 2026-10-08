@@ -17,7 +17,7 @@ view t cfg =
 
     else
         div [ class "flex items-center justify-between pt-1" ]
-            [ span [ class "text-[13px] text-zinc-500" ]
+            [ span [ class "text-[13px] text-muted-foreground" ]
                 [ text (t.pageWord ++ " " ++ String.fromInt cfg.page ++ " " ++ t.ofWord ++ " " ++ String.fromInt totalPages) ]
             , div [ class "flex items-center gap-2" ]
                 [ button
@@ -38,4 +38,4 @@ view t cfg =
 
 buttonClass : String
 buttonClass =
-    "rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+    "rounded-lg border border-border px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"

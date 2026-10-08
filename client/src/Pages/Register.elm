@@ -121,7 +121,7 @@ view t companyName model =
         [ viewBrand companyName
         , Card.view
             [ form [ class "flex flex-col gap-5", onSubmit SubmitRegister ]
-                [ h1 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.createAccount ]
+                [ h1 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.createAccount ]
                 , Input.view
                     { label = t.email
                     , type_ = "email"
@@ -153,11 +153,11 @@ view t companyName model =
                             t.createAccount
                         )
                     ]
-                , p [ class "text-center text-[13px] text-zinc-500" ]
+                , p [ class "text-center text-[13px] text-muted-foreground" ]
                     [ text (t.haveAccount ++ " ")
                     , a
                         [ href "/login"
-                        , class "font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
+                        , class "font-medium text-foreground underline underline-offset-4 hover:text-foreground"
                         ]
                         [ text t.signIn ]
                     ]
@@ -169,9 +169,9 @@ view t companyName model =
 viewBrand : String -> Html Msg
 viewBrand name =
     div [ class "flex items-center gap-2.5" ]
-        [ div [ class "flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white" ]
+        [ div [ class "flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground" ]
             [ text (String.toUpper (String.left 1 name)) ]
-        , span [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text name ]
+        , span [ class "text-base font-semibold tracking-tight text-foreground" ] [ text name ]
         ]
 
 
@@ -179,7 +179,7 @@ viewError : T -> Maybe Error -> Html Msg
 viewError t maybeError =
     case maybeError of
         Just error ->
-            p [ class "text-[13px] text-red-600" ] [ text (errorMessage t error) ]
+            p [ class "text-[13px] text-destructive" ] [ text (errorMessage t error) ]
 
         Nothing ->
             text ""

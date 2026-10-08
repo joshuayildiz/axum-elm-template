@@ -209,8 +209,8 @@ update msg model =
 view : T -> Model -> Html Msg
 view t model =
     div [ class "fixed inset-0 z-50 flex items-center justify-center p-4" ]
-        [ div [ class "absolute inset-0 bg-zinc-900/30", onClick Dismiss ] []
-        , div [ class "relative z-10 flex w-full max-w-md flex-col gap-5 rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-xl" ]
+        [ div [ class "absolute inset-0 bg-foreground/20", onClick Dismiss ] []
+        , div [ class "relative z-10 flex w-full max-w-md flex-col gap-5 rounded-2xl border border-border bg-card p-6 shadow-xl" ]
             [ viewHeader t
             , viewTabs t model.tab
             , case model.tab of
@@ -226,10 +226,10 @@ view t model =
 viewHeader : T -> Html Msg
 viewHeader t =
     div [ class "flex items-center justify-between" ]
-        [ h2 [ class "text-base font-semibold tracking-tight text-zinc-900" ] [ text t.account ]
+        [ h2 [ class "text-base font-semibold tracking-tight text-foreground" ] [ text t.account ]
         , button
             [ onClick Dismiss
-            , class "rounded-md px-2 py-1 text-[13px] font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+            , class "rounded-md px-2 py-1 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             ]
             [ text t.close ]
         ]
@@ -237,7 +237,7 @@ viewHeader t =
 
 viewTabs : T -> Tab -> Html Msg
 viewTabs t active =
-    div [ class "flex gap-1 rounded-lg bg-zinc-100 p-1" ]
+    div [ class "flex gap-1 rounded-lg bg-secondary p-1" ]
         [ tabButton t.changePassword (active == PasswordTab) (SwitchTab PasswordTab)
         , tabButton t.twoFactor (active == SecurityTab) (SwitchTab SecurityTab)
         ]
@@ -249,10 +249,10 @@ tabButton label isActive onSelect =
         [ onClick onSelect
         , class
             (if isActive then
-                "flex-1 rounded-md bg-white px-3 py-1.5 text-[13px] font-medium text-zinc-900 shadow-sm"
+                "flex-1 rounded-md bg-card px-3 py-1.5 text-[13px] font-medium text-foreground shadow-sm"
 
              else
-                "flex-1 rounded-md px-3 py-1.5 text-[13px] font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+                "flex-1 rounded-md px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             )
         ]
         [ text label ]
@@ -292,7 +292,7 @@ viewSecurity t model =
 
             Nothing ->
                 div [ class "flex flex-col gap-4" ]
-                    [ p [ class "text-[13px] text-zinc-500" ] [ text t.twoFactorOff ]
+                    [ p [ class "text-[13px] text-muted-foreground" ] [ text t.twoFactorOff ]
                     , viewNotice t model.notice
                     , Button.primary [ type_ "button", onClick StartSetup, disabled model.working ] [ text t.setUp ]
                     ]
@@ -301,18 +301,18 @@ viewSecurity t model =
 viewEnroll : T -> Model -> TotpSetup -> Html Msg
 viewEnroll t model setup =
     form [ class "flex flex-col gap-4", onSubmit SubmitEnable ]
-        [ p [ class "text-[13px] text-zinc-500" ] [ text t.twoFactorIntro ]
+        [ p [ class "text-[13px] text-muted-foreground" ] [ text t.twoFactorIntro ]
         , div [ class "flex justify-center" ]
             [ img
                 [ src setup.qrPng
                 , alt t.twoFactor
-                , class "h-44 w-44 rounded-lg border border-zinc-200"
+                , class "h-44 w-44 rounded-lg border border-border"
                 ]
                 []
             ]
         , div [ class "flex flex-col gap-1" ]
-            [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-400" ] [ text t.twoFactorSecretLabel ]
-            , code [ class "break-all rounded-md bg-zinc-100 px-2 py-1.5 font-mono text-[12px] text-zinc-700" ] [ text setup.secret ]
+            [ span [ class "text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground" ] [ text t.twoFactorSecretLabel ]
+            , code [ class "break-all rounded-md bg-secondary px-2 py-1.5 font-mono text-[12px] text-muted-foreground" ] [ text setup.secret ]
             ]
         , Input.view
             { label = t.code
@@ -329,7 +329,7 @@ viewEnroll t model setup =
 viewDisable : T -> Model -> Html Msg
 viewDisable t model =
     form [ class "flex flex-col gap-4", onSubmit SubmitDisable ]
-        [ p [ class "text-[13px] text-zinc-500" ] [ text t.twoFactorOn ]
+        [ p [ class "text-[13px] text-muted-foreground" ] [ text t.twoFactorOn ]
         , viewNotice t model.notice
         , Input.view
             { label = t.currentPassword
@@ -347,16 +347,16 @@ viewPwOutcome : T -> String -> Maybe PwOutcome -> Html Msg
 viewPwOutcome t okText outcome =
     case outcome of
         Just PwOk ->
-            p [ class "text-[13px] text-emerald-600" ] [ text okText ]
+            p [ class "text-[13px] text-success" ] [ text okText ]
 
         Just (PwErr IncorrectPassword) ->
-            p [ class "text-[13px] text-red-600" ] [ text t.errIncorrectPassword ]
+            p [ class "text-[13px] text-destructive" ] [ text t.errIncorrectPassword ]
 
         Just (PwErr PasswordTooShort) ->
-            p [ class "text-[13px] text-red-600" ] [ text t.errPasswordTooShort ]
+            p [ class "text-[13px] text-destructive" ] [ text t.errPasswordTooShort ]
 
         Just PwFail ->
-            p [ class "text-[13px] text-red-600" ] [ text t.couldNotLoad ]
+            p [ class "text-[13px] text-destructive" ] [ text t.couldNotLoad ]
 
         Nothing ->
             text ""
@@ -366,10 +366,10 @@ viewCodeOutcome : T -> Maybe CodeOutcome -> Html Msg
 viewCodeOutcome t outcome =
     case outcome of
         Just CodeBad ->
-            p [ class "text-[13px] text-red-600" ] [ text t.authInvalidCode ]
+            p [ class "text-[13px] text-destructive" ] [ text t.authInvalidCode ]
 
         Just CodeFail ->
-            p [ class "text-[13px] text-red-600" ] [ text t.couldNotLoad ]
+            p [ class "text-[13px] text-destructive" ] [ text t.couldNotLoad ]
 
         Nothing ->
             text ""
@@ -379,10 +379,10 @@ viewNotice : T -> Maybe Notice -> Html Msg
 viewNotice t notice =
     case notice of
         Just EnabledNow ->
-            p [ class "text-[13px] text-emerald-600" ] [ text t.twoFactorEnabledMsg ]
+            p [ class "text-[13px] text-success" ] [ text t.twoFactorEnabledMsg ]
 
         Just DisabledNow ->
-            p [ class "text-[13px] text-emerald-600" ] [ text t.twoFactorDisabledMsg ]
+            p [ class "text-[13px] text-success" ] [ text t.twoFactorDisabledMsg ]
 
         Nothing ->
             text ""
